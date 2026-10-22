@@ -65,8 +65,10 @@ model Bot {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   knowledgeVersion Int   @default(0) // bumped whenever the knowledge changes (invalidates cached answers)
+  appearance    Json     @default("{}") // widget look: colors, position, texts (see src/lib/bots/appearance.ts)
   providers     BotProvider[]
   sources       KnowledgeSource[]
+  chatLogs      ChatLog[]
 }
 
 // An AI provider configured for one chatbot. Providers are tried in "sortOrder"; when one fails (quota, outage,
@@ -124,4 +126,55 @@ model KnowledgeChunk {
   @@index([botId])
   @@index([sourceId])
   @@index([tsv], type: Gin)
+}
+
+// ---------- Conversations ----------
+
+// One question and its answer. "unanswered": the chatbot did not have the information (it feeds the improvement loop);
+// "handled": the admin dealt with it. "visitorHash" is a salted hash of the IP address, never the address itself.
+model ChatLog {
+  id             String   @id @default(cuid())
+  botId          String
+  bot            Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  conversationId String?
+  createdAt      DateTime @default(now())
+  question       String
+  answer         String   @default("")
+  status         String   @default("ok") // ok | busy (no provider could answer) | error
+  provider       String?
+  model          String?
+  fallback       Boolean  @default(false) // answered by a provider other than the first choice
+  cached         Boolean  @default(false) // answer taken from the cache (no AI call)
+  unanswered     Boolean  @default(false)
+  handled        Boolean  @default(false)
+  feedback       Int      @default(0) // 1 helpful, -1 not helpful
+  visitorHash    String?
+  origin         String?
+  latencyMs      Int?
+
+  @@index([botId, createdAt])
+  @@index([botId, unanswered, handled])
+}
+
+// Answers already given to a first question. "version" changes with the knowledge and settings of the chatbot,
+// so an outdated answer is never served.
+model ChatCache {
+  botId     String
+  key       String // hash of the normalized question
+  answer    String
+  version   String
+  hits      Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@id([botId, key])
+  @@index([createdAt])
+}
+
+// Requests counted for rate limiting (per visitor and per chatbot).
+model RateHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
 }

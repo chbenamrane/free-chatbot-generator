@@ -7,8 +7,8 @@ export default async function DashboardPage() {
   await requireAdmin();
   return (
     <>
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
-      <p className="mt-2 text-sm text-muted">Your instance is ready. Chatbots, knowledge and statistics will appear here.</p>
+      <h1 className="text-xl font-semibold">Dashboard</h1>
+      <p className="mt-1 text-sm text-muted">Your instance is ready. Statistics and the latest messages will appear here.</p>
     </>
   );
 }

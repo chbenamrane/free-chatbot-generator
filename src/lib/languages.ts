@@ -19,7 +19,6 @@ export const LANGUAGES = [
   { code: "pl", name: "Polish" },
   { code: "sv", name: "Swedish" },
   { code: "uk", name: "Ukrainian" },
-  { code: "he", name: "Hebrew" },
 ] as const;
 
 export const LANGUAGE_CODES: string[] = LANGUAGES.map((l) => l.code);

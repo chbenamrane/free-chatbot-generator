@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // public/widget.js is a standalone browser script (plain ES5, no build step): it is covered by tests/widget.test.ts.
+    "public/**",
+    "backups/**",
   ]),
 ]);
 

@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { path: "", label: "Configuration" },
   { path: "/knowledge", label: "Knowledge" },
+  { path: "/appearance", label: "Appearance" },
+  { path: "/embed", label: "Embed & API" },
 ];
 
 export function BotTabs({ botId }: { botId: string }) {

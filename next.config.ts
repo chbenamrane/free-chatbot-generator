@@ -33,6 +33,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // The widget script is embedded on other websites: let browsers and CDNs cache it for an hour.
+        source: "/widget.js",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=3600" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+        ],
+      },
+      {
         source: "/admin/:path*",
         headers: [
           { key: "Content-Security-Policy", value: csp },

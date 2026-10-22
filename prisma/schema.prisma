@@ -64,4 +64,26 @@ model Bot {
   enabled       Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  providers     BotProvider[]
+}
+
+// An AI provider configured for one chatbot. Providers are tried in "sortOrder"; when one fails (quota, outage,
+// rejected key) it is paused for a while ("pausedUntil") and the next one answers. API keys are encrypted
+// (AES-256-GCM, see src/lib/crypto/secret-box.ts) so a database dump does not reveal them.
+model BotProvider {
+  id          String    @id @default(cuid())
+  botId       String
+  bot         Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  provider    String // gemini | groq | openrouter | cerebras | mistral | openai | anthropic | custom
+  enabled     Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  model       String
+  keyEnc      String?
+  baseUrl     String? // only for "custom" (any OpenAI-compatible endpoint)
+  pausedUntil DateTime?
+  lastError   String?
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([botId, provider])
+  @@index([botId, sortOrder])
 }

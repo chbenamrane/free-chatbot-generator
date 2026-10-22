@@ -3,8 +3,7 @@
 Create custom chatbots that run on **free AI APIs**, teach them your content, and embed them in any website
 with one script tag or through a REST API. Self-hosted, open source (MIT).
 
-> **Status: work in progress.** Phase 1 (foundations) is done: project setup, database, admin sign-in.
-> Roadmap below.
+> **Status: work in progress.** Done so far: foundations, chatbot management, AI providers with automatic fallback.
 
 ## Planned features
 

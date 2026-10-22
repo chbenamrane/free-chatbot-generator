@@ -8,6 +8,8 @@ import { requireAdmin } from "@/lib/auth/session";
 import { BotSettingsForm } from "./BotSettingsForm";
 import { DeleteBotButton } from "./DeleteBotButton";
 import { KeysPanel } from "./KeysPanel";
+import { Playground } from "./Playground";
+import { ProvidersPanel } from "./ProvidersPanel";
 
 export const metadata: Metadata = { title: "Chatbot" };
 
@@ -39,6 +41,8 @@ export default async function BotPage({ params }: PageProps<"/admin/bots/[id]">)
           enabled: bot.enabled,
         }}
       />
+      <ProvidersPanel botId={bot.id} />
+      <Playground botId={bot.id} />
       <KeysPanel botId={bot.id} publicKey={bot.publicKey} secretKeyHint={bot.secretKeyHint} />
 
       <section className="space-y-3 rounded-2xl border border-danger/30 bg-surface p-6">

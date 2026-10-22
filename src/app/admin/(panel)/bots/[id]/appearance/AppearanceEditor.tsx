@@ -1,66 +1,24 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { inputClass, labelClass, primaryButton, secondaryButton } from "@/components/form-styles";
 import { DEFAULT_APPEARANCE, type Appearance } from "@/lib/bots/appearance";
+import type { LeadForm } from "@/lib/bots/lead-form";
 import { toast } from "@/lib/swal";
+import { WidgetPreview } from "../WidgetPreview";
 import { saveAppearanceAction } from "./actions";
 
-type WidgetHandle = { update: (appearance: Appearance, name?: string, welcome?: string) => void; host: HTMLElement };
-type FreeChatbotApi = { mount: (opts: Record<string, unknown>) => WidgetHandle };
-declare global {
-  interface Window {
-    FreeChatbot?: FreeChatbotApi;
-  }
-}
+type Props = { botId: string; publicKey: string; name: string; welcomeMessage: string; initial: Appearance; collect: LeadForm | null };
 
-function loadWidgetScript(): Promise<FreeChatbotApi> {
-  return new Promise((resolve, reject) => {
-    if (window.FreeChatbot) return resolve(window.FreeChatbot);
-    const tag = document.createElement("script");
-    tag.src = "/widget.js";
-    tag.onload = () => (window.FreeChatbot ? resolve(window.FreeChatbot) : reject(new Error("widget missing")));
-    tag.onerror = () => reject(new Error("widget failed to load"));
-    document.head.appendChild(tag);
-  });
-}
-
-type Props = { botId: string; publicKey: string; name: string; welcomeMessage: string; initial: Appearance };
-
-export function AppearanceEditor({ botId, publicKey, name, welcomeMessage, initial }: Props) {
+export function AppearanceEditor({ botId, publicKey, name, welcomeMessage, initial, collect }: Props) {
   const [a, setA] = useState<Appearance>(initial);
   const [state, save, saving] = useActionState(saveAppearanceAction, undefined);
-  const previewRef = useRef<HTMLDivElement>(null);
-  const handleRef = useRef<WidgetHandle | null>(null);
-  const latest = useRef({ a, name, welcomeMessage });
 
   const set = <K extends keyof Appearance>(key: K, value: Appearance[K]) => setA((current) => ({ ...current, [key]: value }));
 
   useEffect(() => {
     if (state?.ok) toast("Appearance saved");
   }, [state]);
-
-  // Mount the real widget inside the preview box (once), then keep it in sync with the form.
-  useEffect(() => {
-    let cancelled = false;
-    loadWidgetScript()
-      .then((api) => {
-        if (cancelled || !previewRef.current) return;
-        const { a: current, name: n, welcomeMessage: w } = latest.current;
-        handleRef.current = api.mount({ key: publicKey, api: window.location.origin, container: previewRef.current, appearance: current, name: n, welcome: w, noStore: true, open: true });
-      })
-      .catch(() => toast("The preview could not load the widget.", "error"));
-    return () => {
-      cancelled = true;
-      handleRef.current?.host.remove();
-      handleRef.current = null;
-    };
-  }, [publicKey]);
-
-  useEffect(() => {
-    latest.current = { a, name, welcomeMessage };
-    handleRef.current?.update(a, name, welcomeMessage);
-  }, [a, name, welcomeMessage]);
 
   return (
     <div className="grid items-start gap-5 xl:grid-cols-2">
@@ -146,6 +104,10 @@ export function AppearanceEditor({ botId, publicKey, name, welcomeMessage, initi
             Open the chat when the page loads
           </label>
           <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={a.showReset} onChange={(e) => set("showReset", e.target.checked)} className="accent-brand" />
+            Show a button to start a new conversation
+          </label>
+          <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={a.showBranding} onChange={(e) => set("showBranding", e.target.checked)} className="accent-brand" />
             Show &quot;Powered by&quot;
           </label>
@@ -161,7 +123,7 @@ export function AppearanceEditor({ botId, publicKey, name, welcomeMessage, initi
       <div className="space-y-2 xl:sticky xl:top-6">
         <p className="text-sm font-medium">Live preview</p>
         <p className="text-xs text-muted">This is the real widget talking to this chatbot (messages you send here appear in its conversations).</p>
-        <div ref={previewRef} className="rounded-2xl border border-dashed border-border bg-background p-4" />
+        <WidgetPreview publicKey={publicKey} name={name} welcomeMessage={welcomeMessage} appearance={a} collect={collect} />
       </div>
     </div>
   );

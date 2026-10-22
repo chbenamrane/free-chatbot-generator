@@ -23,10 +23,11 @@ export default async function MessagesPage({ params, searchParams }: PageProps<"
   const { id } = await params;
   const query = await searchParams;
   const filter: Filter = FILTERS.some((f) => f.id === query.filter) ? (query.filter as Filter) : "unanswered";
+  const conversation = typeof query.conversation === "string" ? query.conversation.slice(0, 64) : "";
   const page = Math.max(1, Number(Array.isArray(query.page) ? query.page[0] : query.page) || 1);
 
   const where: Prisma.ChatLogWhereInput =
-    filter === "unanswered" ? { botId: id, ...needsAnswer } : filter === "negative" ? { botId: id, feedback: -1, handled: false } : { botId: id };
+    filter === "unanswered" ? { botId: id, ...needsAnswer } : filter === "negative" ? { botId: id, feedback: -1, handled: false } : { botId: id, ...(conversation ? { conversationId: conversation } : {}) };
 
   const [logs, total, toAnswer, negative] = await Promise.all([
     db.chatLog.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
@@ -43,6 +44,12 @@ export default async function MessagesPage({ params, searchParams }: PageProps<"
       <p className="max-w-3xl text-sm text-muted">
         Questions the chatbot could not answer land here. Write the right answer once and it is added to the chatbot&apos;s knowledge: the next visitor who asks gets it.
       </p>
+
+      {conversation && filter === "all" && (
+        <p className="text-sm">
+          Showing one conversation. <Link href={`/admin/bots/${id}/messages?filter=all`} className="text-brand underline">Show all messages</Link>
+        </p>
+      )}
 
       <nav className="flex flex-wrap gap-1.5" aria-label="Message filters">
         {FILTERS.map((f) => (

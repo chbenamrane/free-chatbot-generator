@@ -94,7 +94,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/admin"
         </ul>
       )}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 2xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 2xl:grid-cols-9">
         <Tile label="Messages" value={stats.messages} hint={`last ${range} days`} />
         <Tile label="Visitors" value={stats.visitors} hint="unique, from browsers" />
         <Tile label="Answered" value={pct(stats.answered, stats.messages)} hint={`${stats.unanswered} unknown · ${stats.failed} failed`} />
@@ -102,6 +102,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/admin"
         <Tile label="Served from cache" value={pct(stats.cached, stats.messages)} hint={`${stats.aiCalls} AI calls made`} />
         <Tile label="Helpful" value={pct(stats.helpful, rated)} hint={`${stats.helpful} 👍 · ${stats.notHelpful} 👎`} />
         <Tile label="Average speed" value={stats.avgLatencyMs === null ? "–" : `${(stats.avgLatencyMs / 1000).toFixed(1)}s`} hint="AI answers only" />
+        <Tile label="Leads" value={stats.leads} hint="visitor details collected" />
         <Tile label="Chatbots" value={bots.filter((b) => b.enabled).length} hint={`${bots.length} in total`} />
       </div>
 

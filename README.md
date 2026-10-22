@@ -18,6 +18,8 @@ Free Chatbot Generator is a self-hosted, open source (MIT) platform. You bring f
 | **Improvement loop** | Questions the chatbot could not answer are collected. Write the right answer once and it is remembered. |
 | **Dashboard** | Messages per day, visitors, answer rate, cache rate, feedback, provider usage, warnings and the latest messages (you choose how many). |
 | **Embed anywhere** | One `<script>` tag, or a REST API with streaming. Snippets for HTML, React, Next.js, WordPress, cURL, Node.js and Python are generated for you. |
+| **Visitor details** | Optionally ask visitors for their name, e-mail, phone or custom questions (before the chat or after a few messages), with consent, a contacts list and CSV export. |
+| **Reset button** | Optional button so visitors can start a new conversation. |
 | **Customizable widget** | Colors, position, theme, avatar, texts, suggested questions, with a live preview. Dependency-free, Shadow DOM, accessible. |
 | **Multilingual** | Each chatbot answers in the languages you pick, in the visitor's language. |
 | **Safe by design** | Encrypted API keys, hashed secret keys, allowed origins, rate limiting, SSRF-safe web import, encrypted key backups. |
@@ -86,6 +88,7 @@ See [docs/integration.md](docs/integration.md) for React, Next.js, WordPress and
 | [Configuration](docs/configuration.md) | Every environment variable |
 | [AI providers](docs/providers.md) | Free and paid providers, fallback, quotas, keys |
 | [Knowledge and learning](docs/knowledge.md) | How a chatbot learns and finds answers |
+| [Visitor details and reset](docs/leads.md) | Asking visitors for their details, contacts, export, privacy, the reset button |
 | [Integration](docs/integration.md) | Widget, frameworks, CMS, content security policy |
 | [API reference](docs/api-reference.md) | Endpoints, authentication, errors, streaming |
 | [Self-hosting](docs/self-hosting.md) | Docker, VPS with a reverse proxy, backups, updates |

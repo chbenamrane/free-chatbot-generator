@@ -25,7 +25,8 @@ All settings are environment variables, read from `.env` in development or from 
 | Allowed origins | Configuration | Websites allowed to use the public key. Empty = any website. |
 | Enabled | Configuration | A disabled chatbot refuses to answer (HTTP 403) and the widget hides itself. |
 | AI providers | Configuration | Keys, models, order and on/off switches. See [providers.md](providers.md). |
-| Appearance | Appearance | Colors, position, theme, texts, suggestions. |
+| Appearance | Appearance | Colors, position, theme, texts, suggestions, optional reset button. |
+| Visitor details | Leads | Form asking visitors for their name, e-mail, phone...; the list of collected contacts and the CSV export. See [leads.md](leads.md). |
 
 ## Dashboard
 

@@ -18,7 +18,7 @@ Add this just before `</body>` on every page that should show the chat:
 
 JavaScript API: `FreeChatbot.open()`, `FreeChatbot.close()`, `FreeChatbot.toggle()` (for example to open the chat from your own "Help" button).
 
-What it does: loads the chatbot's name, welcome message and look from the instance, shows a round button, opens a chat panel, **streams** answers, offers 👍/👎 on each answer, keeps the conversation while the tab stays open, and goes full-screen on phones. It is a single dependency-free file in a Shadow DOM: your site's CSS cannot break it and it cannot break your site.
+What it does: loads the chatbot's name, welcome message and look from the instance, shows a round button, opens a chat panel, **streams** answers, offers 👍/👎 on each answer, keeps the conversation while the tab stays open, and goes full-screen on phones. Optionally it also shows a **button to start a new conversation** and a **form asking visitors for their details**: see [leads.md](leads.md). It is a single dependency-free file in a Shadow DOM: your site's CSS cannot break it and it cannot break your site.
 
 **Security rule**: set the chatbot's **Allowed origins** (Configuration) to your website addresses, for example `https://example.com` and `https://www.example.com`. Without it, anybody can copy your public key and use your quota.
 

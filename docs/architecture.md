@@ -38,7 +38,7 @@
 
 ## Data model
 
-`Admin` (single) → `AdminSession`. `Bot` → `BotProvider` (encrypted key, model, order, pause state), `KnowledgeSource` → `KnowledgeChunk` (generated `tsvector` column + GIN index), `ChatLog` (one row per exchange), `ChatCache`. `RateHit` and `LoginAttempt` count requests. Chatbot appearance is a JSON column validated by `src/lib/bots/appearance.ts`.
+`Admin` (single) → `AdminSession`. `Bot` → `BotProvider` (encrypted key, model, order, pause state), `KnowledgeSource` → `KnowledgeChunk` (generated `tsvector` column + GIN index), `ChatLog` (one row per exchange), `ChatCache`, `Lead` (visitor information, one row per conversation). `RateHit` and `LoginAttempt` count requests. Chatbot appearance and the visitor information form are JSON columns validated by `src/lib/bots/appearance.ts` and `src/lib/bots/lead-form.ts` (the latter also validates every submission).
 
 ## Key design decisions
 

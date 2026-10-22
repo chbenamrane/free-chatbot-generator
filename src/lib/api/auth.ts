@@ -18,6 +18,7 @@ const botSelect = {
   allowedOrigins: true,
   knowledgeVersion: true,
   appearance: true,
+  collect: true,
 } as const;
 
 export type ApiBot = NonNullable<Awaited<ReturnType<typeof findByPublicKey>>>;

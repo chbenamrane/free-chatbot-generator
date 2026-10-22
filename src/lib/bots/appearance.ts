@@ -21,6 +21,7 @@ export const appearanceSchema = z.object({
   suggestions: z.array(z.string().trim().min(1).max(80)).max(4).catch([]), // starter questions shown above the input
   openOnLoad: z.boolean().catch(false),
   showBranding: z.boolean().catch(true),
+  showReset: z.boolean().catch(false), // button that lets the visitor start the conversation over
 });
 
 export type Appearance = z.infer<typeof appearanceSchema>;

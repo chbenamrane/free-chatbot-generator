@@ -17,9 +17,9 @@ export type BotAnswer =
   | { ok: true; provider: Provider; model: string; fallback: boolean; stream: AsyncGenerator<string>; state: MarkerState; knowledgeHits: number }
   | { ok: false; error: string };
 
-export async function answerQuestion(bot: ResponderBot, question: string, history: ChatTurn[] = []): Promise<BotAnswer> {
+export async function answerQuestion(bot: ResponderBot, question: string, history: ChatTurn[] = [], visitor: { name?: string } = {}): Promise<BotAnswer> {
   const retrieval = await retrieveKnowledge(bot.id, question);
-  const system = buildSystemPrompt(bot, retrieval.hits.map((h) => `[${h.title}]\n${h.content}`));
+  const system = buildSystemPrompt(bot, retrieval.hits.map((h) => `[${h.title}]\n${h.content}`), visitor);
   const turns: ChatTurn[] = [...history.slice(-MAX_HISTORY_TURNS), { role: "user", content: question }];
 
   const run = await runBotChat(bot.id, system, turns);

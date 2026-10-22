@@ -23,6 +23,7 @@ Request:
 | `history` | array | no | Previous turns `[{ "role": "user" \| "assistant", "content": string (≤ 2000) }]`, 20 at most (the last 8 are used). When present, the answer cache is skipped. |
 | `conversationId` | string | no | Any identifier (≤ 64 characters) to group messages in the logs. |
 | `stream` | boolean | no | `true` to receive Server-Sent Events (see below). |
+| `visitor` | object | no | `{ "name": string }`: the visitor's name (from your own form). It is added to the prompt for that request, and **disables the answer cache** for it. |
 
 Response `200` (JSON):
 
@@ -74,16 +75,33 @@ Rate an answer.
 
 `value`: `1` helpful, `-1` not helpful, `0` remove the rating. Not-helpful answers appear under *Messages → Not helpful*. Response: `{ "ok": true }`, or `404` if the id does not belong to this chatbot.
 
+## `POST /api/v1/leads`
+
+Saves what a visitor typed in the chatbot's information form (see [leads.md](leads.md)). Same authentication as `/api/v1/chat`.
+
+```json
+{ "conversationId": "abc123", "data": { "name": "Marie", "email": "marie@example.com" }, "consent": true }
+```
+
+| Field | Description |
+|---|---|
+| `conversationId` | The conversation the contact belongs to (the widget uses the same id for its chat messages). One contact per conversation: sending again updates it. |
+| `data` | Values by field key: `name`, `email`, `phone`, `company`, `custom1`, `custom2`, `custom3`. Only the fields configured on the chatbot are kept. |
+| `consent` | `true` when the visitor ticked the consent box (required when the chatbot has a consent text). |
+
+Response: `{ "ok": true }`. Validation failures return `400` with code `invalid_lead` and a readable message (for example `E-mail: enter a valid e-mail address.`). The chatbot must have its form enabled, otherwise the request is refused. Limit: 10 per minute per visitor.
+
 ## `GET /api/v1/bots/{publicKey}/config`
 
-Used by the widget. Returns the chatbot's public settings (`Cache-Control: public, max-age=30`):
+Used by the widget. Returns the chatbot's public settings (`Cache-Control: public, max-age=30`). `collect` is the visitor information form (`enabled`, `when`, `afterMessages`, `title`, `intro`, `submitLabel`, `skippable`, `consentText`, `thanks`, `fields[]`), or `null` when the form is off:
 
 ```json
 {
   "enabled": true,
   "name": "Support assistant",
   "welcomeMessage": "Hi! How can I help?",
-  "appearance": { "color": "#4f46e5", "position": "right", "theme": "auto", "title": "", "subtitle": "", "avatar": "", "icon": "chat", "placeholder": "Type your message…", "launcherLabel": "", "radius": 16, "suggestions": [], "openOnLoad": false, "showBranding": true }
+  "appearance": { "color": "#4f46e5", "position": "right", "theme": "auto", "title": "", "subtitle": "", "avatar": "", "icon": "chat", "placeholder": "Type your message…", "launcherLabel": "", "radius": 16, "suggestions": [], "openOnLoad": false, "showBranding": true, "showReset": false },
+  "collect": null
 }
 ```
 
@@ -98,6 +116,7 @@ Every error has the same shape:
 | Status | `code` | Meaning |
 |---|---|---|
 | 400 | `invalid_json`, `invalid_request` | Malformed body, missing or too long `message`, bad `history`. |
+| 400 | `invalid_lead` | The information form submission is invalid or the form is off. |
 | 401 | `missing_key`, `invalid_key` | No key, or an unknown key. |
 | 403 | `origin_not_allowed` | The website is not in the chatbot's allowed origins. |
 | 403 | `bot_disabled` | The chatbot is disabled. |
@@ -113,6 +132,7 @@ Every error has the same shape:
 | Messages per visitor (IP) and chatbot, public key | 15 per minute | `CHAT_RATE_PER_MINUTE` |
 | Messages per chatbot, all callers | 300 per minute | `CHAT_BOT_RATE_PER_MINUTE` |
 | Feedback per visitor | 60 per minute | |
+| Information form submissions per visitor | 10 per minute | |
 | Message length | 1000 characters | |
 | Request body | 50 KB | |
 

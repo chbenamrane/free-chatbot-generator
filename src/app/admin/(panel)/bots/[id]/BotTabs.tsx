@@ -7,6 +7,7 @@ const TABS = [
   { path: "", label: "Configuration" },
   { path: "/knowledge", label: "Knowledge" },
   { path: "/messages", label: "Messages" },
+  { path: "/leads", label: "Leads" },
   { path: "/appearance", label: "Appearance" },
   { path: "/embed", label: "Embed & API" },
 ];

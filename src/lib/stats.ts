@@ -21,6 +21,7 @@ export type Stats = {
   notHelpful: number;
   avgLatencyMs: number | null;
   pending: number; // messages still waiting for the admin
+  leads: number; // visitors who filled the information form in the period
   perDay: { date: string; count: number }[];
   providers: { provider: string; model: string; count: number; fallback: number; today: number }[];
 };
@@ -34,7 +35,8 @@ export async function getStats(days: Range, botId?: string): Promise<Stats> {
   const base: Prisma.ChatLogWhereInput = { createdAt: { gte: since }, ...(botId ? { botId } : {}) };
   const botFilter = botId ? { botId } : {};
 
-  const [messages, unanswered, failed, cached, helpful, notHelpful, latency, pending, visitorRows, dayRows, providerRows, todayRows] = await Promise.all([
+  const [messages, unanswered, failed, cached, helpful, notHelpful, latency, pending, visitorRows, dayRows, providerRows, todayRows, leads] = await Promise.all([
+    // (leads are counted last, see the end of the list)
     db.chatLog.count({ where: base }),
     db.chatLog.count({ where: { ...base, unanswered: true } }),
     db.chatLog.count({ where: { ...base, status: "busy" } }),
@@ -51,6 +53,7 @@ export async function getStats(days: Range, botId?: string): Promise<Stats> {
       GROUP BY 1`,
     db.chatLog.groupBy({ by: ["provider", "model"], where: { ...base, provider: { not: null }, cached: false }, _count: { _all: true } }),
     db.chatLog.groupBy({ by: ["provider"], where: { ...botFilter, createdAt: { gte: today }, provider: { not: null }, cached: false }, _count: { _all: true } }),
+    db.lead.count({ where: { createdAt: { gte: since }, ...botFilter } }),
   ]);
 
   const counts = new Map(dayRows.map((r) => [r.day, Number(r.count)]));
@@ -86,6 +89,7 @@ export async function getStats(days: Range, botId?: string): Promise<Stats> {
     notHelpful,
     avgLatencyMs: latency._avg.latencyMs === null ? null : Math.round(latency._avg.latencyMs),
     pending,
+    leads,
     perDay,
     providers,
   };

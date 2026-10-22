@@ -6,7 +6,9 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { parseAppearance } from "@/lib/bots/appearance";
+import { parseLeadForm, publicLeadForm, validateLead } from "@/lib/bots/lead-form";
 import { cacheKey, contentVersion } from "@/lib/chat/cache";
+import { cleanVisitorName } from "@/lib/chat/prompt";
 import { answerQuestion } from "@/lib/chat/respond";
 import { authenticate, type ApiAuth } from "./auth";
 import { corsHeaders, preflightHeaders } from "./cors";
@@ -23,6 +25,7 @@ const chatBody = z.object({
     .optional(),
   conversationId: z.string().trim().max(64).optional(),
   stream: z.boolean().optional(),
+  visitor: z.object({ name: z.string().max(100).optional() }).optional(), // name given in the visitor form
 });
 
 const visitorHash = (ip: string) => createHash("sha256").update(`${process.env.APP_SECRET ?? ""}:${ip}`).digest("hex").slice(0, 16);
@@ -59,7 +62,8 @@ export async function chatPost(request: Request): Promise<Response> {
 
     const parsed = chatBody.safeParse(await readJson(request));
     if (!parsed.success) throw new ApiError(400, "invalid_request", parsed.error.issues[0]?.message ?? "Invalid request.");
-    const { message, history = [], conversationId, stream } = parsed.data;
+    const { message, history = [], conversationId, stream, visitor } = parsed.data;
+    const visitorName = visitor?.name ? cleanVisitorName(visitor.name) : "";
 
     const ip = clientIp(request.headers);
     if (auth.kind === "public" && !(await takeRate(`chat:${bot.id}:${ip}`, RATE_PER_VISITOR, 60_000))) {
@@ -71,7 +75,8 @@ export async function chatPost(request: Request): Promise<Response> {
     const base = { botId: bot.id, conversationId: conversationId ?? null, question: message, visitorHash: auth.kind === "public" ? visitorHash(ip) : null, origin: auth.origin };
     const version = contentVersion(bot);
     const key = cacheKey(message);
-    const cacheable = history.length === 0;
+    // A cached answer is shared by everybody: never cache when the answer may use this visitor's name.
+    const cacheable = history.length === 0 && !visitorName;
 
     // 1. Cached answer to the same first question
     if (cacheable) {
@@ -84,7 +89,7 @@ export async function chatPost(request: Request): Promise<Response> {
     }
 
     // 2. Ask the AI (knowledge + provider fallback)
-    const run = await answerQuestion(bot, message, history);
+    const run = await answerQuestion(bot, message, history, { name: visitorName });
     if (!run.ok) {
       await db.chatLog.create({ data: { ...base, status: "busy", latencyMs: Date.now() - started } });
       throw new ApiError(503, "providers_unavailable", "The chatbot cannot answer right now. Please try again in a moment.", 30);
@@ -172,7 +177,7 @@ export async function configGet(request: Request, publicKey: string): Promise<Re
     if (!auth.originAllowed) throw new ApiError(403, "origin_not_allowed", "This website is not allowed to use this chatbot.");
     const { bot } = auth;
     return json(
-      { enabled: bot.enabled, name: bot.name, welcomeMessage: bot.welcomeMessage, appearance: parseAppearance(bot.appearance) },
+      { enabled: bot.enabled, name: bot.name, welcomeMessage: bot.welcomeMessage, appearance: parseAppearance(bot.appearance), collect: publicLeadForm(parseLeadForm(bot.collect)) },
       200,
       { ...headers, "Cache-Control": "public, max-age=30" },
     );
@@ -196,6 +201,35 @@ export async function feedbackPost(request: Request): Promise<Response> {
     }
     const { count } = await db.chatLog.updateMany({ where: { id: parsed.data.id, botId: auth.bot.id }, data: { feedback: parsed.data.value } });
     if (count === 0) throw new ApiError(404, "not_found", "Message not found.");
+    return json({ ok: true }, 200, headers);
+  }, () => headers);
+}
+
+// ---------- POST /api/v1/leads ----------
+
+const leadBody = z.object({ conversationId: z.string().trim().min(1).max(64), data: z.record(z.string(), z.unknown()), consent: z.boolean().optional() });
+
+// Saves (or updates) what a visitor typed in the information form, validated against the form of that chatbot.
+export async function leadPost(request: Request): Promise<Response> {
+  let headers: Record<string, string> = {};
+  return guarded(async () => {
+    const auth = await authenticate(request);
+    headers = cors(auth, "POST, OPTIONS");
+    if (!auth.originAllowed) throw new ApiError(403, "origin_not_allowed", "This website is not allowed to use this chatbot.");
+    if (!auth.bot.enabled) throw new ApiError(403, "bot_disabled", "This chatbot is disabled.");
+
+    const parsed = leadBody.safeParse(await readJson(request, 10_000));
+    if (!parsed.success) throw new ApiError(400, "invalid_request", "Send { conversationId, data, consent }.");
+    const ip = clientIp(request.headers);
+    if (auth.kind === "public" && !(await takeRate(`lead:${auth.bot.id}:${ip}`, 10, 60_000))) throw new ApiError(429, "rate_limited", "Too many requests.", 30);
+
+    const result = validateLead(parseLeadForm(auth.bot.collect), parsed.data.data, parsed.data.consent);
+    if (!result.ok) throw new ApiError(400, "invalid_lead", result.message);
+
+    const botId = auth.bot.id;
+    const conversationId = parsed.data.conversationId;
+    const info = { data: result.data, consent: result.consent, origin: auth.origin, visitorHash: auth.kind === "public" ? visitorHash(ip) : null };
+    await db.lead.upsert({ where: { botId_conversationId: { botId, conversationId } }, create: { botId, conversationId, ...info }, update: info });
     return json({ ok: true }, 200, headers);
   }, () => headers);
 }

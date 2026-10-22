@@ -21,7 +21,7 @@ function sseResponse(events: unknown[]) {
   return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
 }
 
-function boot(handler: (url: string, init?: RequestInit) => Response | Promise<Response>, config: Record<string, unknown> = {}) {
+function boot(handler: (url: string, init?: RequestInit) => Response | Promise<Response>, config: Record<string, unknown> = {}, collect: Record<string, unknown> | null = null) {
   const calls: Call[] = [];
   const dom = new JSDOM(`<!doctype html><body><script src="https://bots.example.com/widget.js" data-bot="pk_test" data-open="true"></script></body>`, {
     url: "https://site.example/page",
@@ -32,7 +32,7 @@ function boot(handler: (url: string, init?: RequestInit) => Response | Promise<R
   w.TextDecoder = TextDecoder;
   // jsdom does not set document.currentScript for outside-only scripts: point it at the tag
   Object.defineProperty(dom.window.document, "currentScript", { value: dom.window.document.querySelector("script"), configurable: true });
-  const full = { enabled: true, name: "Helper", welcomeMessage: "Hello there", appearance: { color: "#ff0000", suggestions: ["What are your hours?"], ...config } };
+  const full = { enabled: true, name: "Helper", welcomeMessage: "Hello there", appearance: { color: "#ff0000", suggestions: ["What are your hours?"], ...config }, collect };
   w.fetch = (async (url: string, init?: RequestInit) => {
     calls.push({ url: String(url), init });
     return String(url).endsWith("/config") ? new Response(JSON.stringify(full), { status: 200 }) : handler(String(url), init);
@@ -109,4 +109,168 @@ test("does not render anything when the chatbot is disabled", async () => {
   dom.window.eval(source);
   await tick();
   assert.equal(dom.window.document.body.children.length, before);
+});
+
+const ok = () => sseResponse([{ type: "delta", text: "Sure." }, { type: "done", id: "log1" }]);
+
+async function say(h: ReturnType<typeof boot>, text: string) {
+  h.shadow().querySelector("textarea")!.value = text;
+  h.shadow().querySelector(".form")!.dispatchEvent(new h.dom.window.Event("submit", { cancelable: true }));
+  await tick(80);
+}
+const chatBodies = (calls: Call[]) => calls.filter((c) => c.url.endsWith("/api/v1/chat")).map((c) => JSON.parse(String(c.init!.body)));
+const leadBodies = (calls: Call[]) => calls.filter((c) => c.url.endsWith("/api/v1/leads")).map((c) => JSON.parse(String(c.init!.body)));
+const fill = (h: ReturnType<typeof boot>, values: Record<string, string>, consent?: boolean) => {
+  const root = h.shadow();
+  for (const [key, value] of Object.entries(values)) (root.querySelector(`.lf input[name="${key}"]`) as HTMLInputElement).value = value;
+  if (consent !== undefined) (root.querySelector(".lf .consent input") as HTMLInputElement).checked = consent;
+  root.querySelector(".lf")!.dispatchEvent(new h.dom.window.Event("submit", { cancelable: true }));
+};
+
+test("reset button is hidden by default and shown with showReset", async () => {
+  const off = boot(ok);
+  await tick();
+  assert.equal((off.shadow().querySelector('[aria-label="Start a new conversation"]') as HTMLElement).style.display, "none");
+  const on = boot(ok, { showReset: true });
+  await tick();
+  assert.equal((on.shadow().querySelector('[aria-label="Start a new conversation"]') as HTMLElement).style.display, "");
+});
+
+test("reset asks for confirmation, then clears the conversation and starts a new one", async () => {
+  const h = boot(ok, { showReset: true });
+  await tick();
+  const resetBtn = h.shadow().querySelector('[aria-label="Start a new conversation"]') as HTMLButtonElement;
+  resetBtn.click();
+  assert.ok(!h.shadow().querySelector(".confirm")!.classList.contains("show"), "nothing to reset before the first message");
+
+  await say(h, "first question");
+  const firstId = chatBodies(h.calls)[0].conversationId;
+  resetBtn.click();
+  assert.ok(h.shadow().querySelector(".confirm")!.classList.contains("show"));
+  (h.shadow().querySelectorAll(".confirm button")[0] as HTMLButtonElement).click(); // Cancel
+  assert.ok(!h.shadow().querySelector(".confirm")!.classList.contains("show"));
+  assert.ok(h.shadow().querySelectorAll(".row").length >= 3, "cancel keeps the conversation");
+
+  resetBtn.click();
+  (h.shadow().querySelector(".confirm .go") as HTMLButtonElement).click(); // Reset
+  assert.equal(h.shadow().querySelectorAll(".row").length, 1, "only the welcome message is left");
+  assert.equal(h.shadow().querySelector(".bubble")!.textContent, "Hello there");
+  assert.ok(h.shadow().querySelector(".chip"), "suggestions are back");
+
+  await say(h, "second question");
+  const second = chatBodies(h.calls)[1];
+  assert.deepEqual(second.history, [], "the history was cleared");
+  assert.notEqual(second.conversationId, firstId, "a new conversation id is used");
+});
+
+const form = {
+  enabled: true,
+  when: "start",
+  afterMessages: 2,
+  title: "Before we start",
+  intro: "Tell us about you",
+  submitLabel: "Start chat",
+  skippable: false,
+  consentText: "",
+  thanks: "Thanks!",
+  fields: [
+    { key: "name", label: "Name", type: "text", required: true },
+    { key: "email", label: "E-mail", type: "email", required: false },
+  ],
+};
+
+test("start form replaces the chat until it is filled, then sends the lead and the visitor name", async () => {
+  const h = boot(ok, {}, { ...form, fields: [{ key: "name", label: "<img src=x onerror=alert(1)>", type: "text", required: true }, ...form.fields.slice(1)] });
+  await tick();
+  assert.ok(h.shadow().querySelector(".panel")!.classList.contains("lead-mode"));
+  assert.equal(h.shadow().querySelector(".lf h3")!.textContent, "Before we start");
+  assert.equal(h.shadow().querySelectorAll(".lf img").length, 0, "labels are text, never HTML");
+
+  fill(h, { name: "Marie", email: "marie@example.com" });
+  await tick();
+  const leads = leadBodies(h.calls);
+  assert.equal(leads.length, 1);
+  assert.deepEqual(leads[0].data, { name: "Marie", email: "marie@example.com" });
+  assert.equal(leads[0].consent, false);
+  assert.ok(!h.shadow().querySelector(".panel")!.classList.contains("lead-mode"), "the chat is available");
+
+  await say(h, "hello");
+  const chat = chatBodies(h.calls)[0];
+  assert.deepEqual(chat.visitor, { name: "Marie" });
+  assert.equal(chat.conversationId, leads[0].conversationId, "the lead is linked to the conversation");
+});
+
+test("a rejected submission shows the server message and keeps the form", async () => {
+  const h = boot(() => new Response(JSON.stringify({ error: { code: "invalid_lead", message: "E-mail: enter a valid e-mail address." } }), { status: 400 }), {}, form);
+  await tick();
+  fill(h, { name: "Marie", email: "nope" });
+  await tick();
+  assert.equal(h.shadow().querySelector(".lf .err")!.textContent, "E-mail: enter a valid e-mail address.");
+  assert.ok(h.shadow().querySelector(".panel")!.classList.contains("lead-mode"));
+  assert.equal((h.shadow().querySelector(".lf .go") as HTMLButtonElement).disabled, false);
+});
+
+test("consent checkbox is sent, and skipping needs no request", async () => {
+  const withConsent = boot(ok, {}, { ...form, consentText: "I agree to be contacted" });
+  await tick();
+  fill(withConsent, { name: "Marie" }, true);
+  await tick();
+  assert.equal(leadBodies(withConsent.calls)[0].consent, true);
+
+  const skippable = boot(ok, {}, { ...form, skippable: true });
+  await tick();
+  (skippable.shadow().querySelector(".lf .skip") as HTMLButtonElement).click();
+  assert.equal(leadBodies(skippable.calls).length, 0);
+  assert.ok(!skippable.shadow().querySelector(".panel")!.classList.contains("lead-mode"));
+});
+
+test("after mode asks inside the conversation once enough messages were sent", async () => {
+  const h = boot(ok, {}, { ...form, when: "after", afterMessages: 2 });
+  await tick();
+  assert.ok(!h.shadow().querySelector(".panel")!.classList.contains("lead-mode"), "the chat is available right away");
+  await say(h, "one");
+  assert.equal(h.shadow().querySelectorAll(".card").length, 0);
+  await say(h, "two");
+  assert.equal(h.shadow().querySelectorAll(".card .lf").length, 1, "the form appears after the second message");
+  fill(h, { name: "Marie" });
+  await tick();
+  assert.equal(h.shadow().querySelector(".card")!.textContent, "Thanks!");
+  await say(h, "three");
+  assert.equal(h.shadow().querySelectorAll(".card").length, 1, "it is not asked again");
+});
+
+test("after a reset the visitor details follow the new conversation", async () => {
+  const h = boot(ok, { showReset: true }, form);
+  await tick();
+  fill(h, { name: "Marie" });
+  await tick();
+  await say(h, "hello");
+  (h.shadow().querySelector('[aria-label="Start a new conversation"]') as HTMLButtonElement).click();
+  (h.shadow().querySelector(".confirm .go") as HTMLButtonElement).click();
+  await tick();
+  const leads = leadBodies(h.calls);
+  assert.equal(leads.length, 2);
+  assert.notEqual(leads[1].conversationId, leads[0].conversationId);
+  assert.deepEqual(leads[1].data, leads[0].data);
+  assert.ok(!h.shadow().querySelector(".panel")!.classList.contains("lead-mode"), "the form is not shown again");
+});
+
+test("the preview never sends visitor information", async () => {
+  const dom = new JSDOM("<!doctype html><body><div id=box></div></body>", { url: "https://admin.example/", runScripts: "outside-only" });
+  const w = dom.window as unknown as Window & Record<string, unknown>;
+  const calls: Call[] = [];
+  w.fetch = (async (url: string, init?: RequestInit) => {
+    calls.push({ url: String(url), init });
+    return new Response("{}");
+  }) as unknown as typeof fetch;
+  w.TextDecoder = TextDecoder;
+  dom.window.eval(source);
+  const FreeChatbot = (w as unknown as { FreeChatbot: { mount: (o: object) => { host: HTMLElement } } }).FreeChatbot;
+  const handle = FreeChatbot.mount({ key: "pk_x", api: "https://admin.example", container: dom.window.document.getElementById("box"), appearance: {}, name: "Bot", noStore: true, open: true, collect: form });
+  const root = handle.host.shadowRoot!;
+  (root.querySelector('.lf input[name="name"]') as HTMLInputElement).value = "Marie";
+  root.querySelector(".lf")!.dispatchEvent(new dom.window.Event("submit", { cancelable: true }));
+  await tick();
+  assert.equal(calls.filter((c) => c.url.includes("/leads")).length, 0);
+  assert.ok(!root.querySelector(".panel")!.classList.contains("lead-mode"), "the preview still moves on to the chat");
 });

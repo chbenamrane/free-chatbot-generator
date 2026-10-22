@@ -24,9 +24,12 @@
     send: "M2 21l21-9L2 3v7l15 2-15 2z",
     close: "M6 6l12 12M18 6L6 18",
     up: "M7 11l5-8 5 8h-3v8h-4v-8H7z",
+    reset: "M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.74 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z",
   };
 
-  var DEFAULTS = { color: "#4f46e5", position: "right", theme: "auto", title: "", subtitle: "", avatar: "", icon: "chat", placeholder: "Type your message…", launcherLabel: "", radius: 16, suggestions: [], openOnLoad: false, showBranding: true };
+  var DEFAULTS = { color: "#4f46e5", position: "right", theme: "auto", title: "", subtitle: "", avatar: "", icon: "chat", placeholder: "Type your message…", launcherLabel: "", radius: 16, suggestions: [], openOnLoad: false, showBranding: true, showReset: false };
+
+  function newId() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
 
   function el(tag, props, children) {
     var node = document.createElement(tag);
@@ -120,6 +123,13 @@
     ".form textarea{flex:1;resize:none;max-height:110px;min-height:38px;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:calc(var(--r) - 4px);padding:8px 10px;font-size:14px;outline:none}.form textarea:focus{border-color:var(--c)}",
     ".send{flex:none;width:38px;height:38px;border:0;border-radius:50%;background:var(--c);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}.send:disabled{opacity:.45;cursor:default}",
     ".brand{text-align:center;font-size:11px;color:var(--muted);padding:0 0 8px}.brand a{color:inherit}",
+    ".lead{display:none;flex:1;overflow-y:auto;padding:16px}.lead-mode .msgs,.lead-mode .chips,.lead-mode .form{display:none}.lead-mode .lead{display:block}",
+    ".lf h3{margin:0 0 4px;font-size:16px}.lf p{margin:0 0 12px;color:var(--muted)}.lf label{display:block;margin-bottom:10px;font-size:13px;font-weight:600}.lf .req{color:#dc2626}",
+    ".lf input[type=text],.lf input[type=email],.lf input[type=tel]{display:block;width:100%;margin-top:4px;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:calc(var(--r) - 6px);padding:8px 10px;font-size:14px;outline:none;font-weight:400}.lf input:focus{border-color:var(--c)}",
+    ".lf .consent{display:flex;gap:8px;align-items:flex-start;font-weight:400;font-size:12.5px}.lf .consent input{margin-top:2px;accent-color:var(--c)}",
+    ".lf .actions{display:flex;gap:10px;align-items:center;margin-top:12px}.lf .go{border:0;background:var(--c);color:#fff;border-radius:calc(var(--r) - 6px);padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer}.lf .go:disabled{opacity:.5;cursor:default}.lf .skip{border:0;background:transparent;color:var(--muted);cursor:pointer;text-decoration:underline;font-size:13px}.lf .err{color:#dc2626;font-size:13px;margin-top:8px}",
+    ".card{align-self:stretch;border:1px solid var(--line);border-radius:calc(var(--r) - 4px);padding:12px;background:var(--bg)}.card.thanks{text-align:center;color:var(--muted)}",
+    ".confirm{display:none;align-items:center;gap:8px;padding:8px 14px;background:var(--bubble);font-size:13px}.confirm.show{display:flex}.confirm span{flex:1}.confirm button{border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:13px}.confirm button.go{background:var(--c);border-color:var(--c);color:#fff}",
     "@media (max-width:480px){.root:not(.inline) .panel{position:fixed;inset:0;width:100%;max-width:none;height:100%;border-radius:0;border:0}.root:not(.inline).open .launcher{display:none}}",
     "@media (prefers-reduced-motion:reduce){.msgs{scroll-behavior:auto}.dots i{animation:none}}",
   ].join("");
@@ -136,10 +146,19 @@
     this.storeKey = "fcg:" + this.key;
     this.conversationId = null;
     this.hasUserMessage = false;
+    this.preview = !!opts.noStore; // admin preview: nothing is stored and no visitor information is sent
+    this.leadKey = "fcg:lead:" + this.key;
+    this.lead = null; // { data, consent } once the visitor filled the form, { skipped: true } if they skipped it
+    this.visitorName = "";
+    this.userCount = 0;
+    this.cardShown = false;
+    this.setCollectConfig(opts.collect);
     this.build(opts.container);
-    if (!opts.noStore) this.restore();
+    if (!opts.noStore) { this.restore(); this.restoreLead(); }
+    if (!this.conversationId) this.conversationId = newId();
     if (!this.msgs.children.length && this.welcome) this.addBot(this.welcome, null, true);
     this.apply();
+    this.syncLeadMode();
     if (this.cfg.openOnLoad || opts.open) this.open();
   }
 
@@ -155,7 +174,14 @@
     this.titleEl = el("div", { class: "title" });
     this.subtitleEl = el("div", { class: "subtitle" });
     var closeBtn = el("button", { class: "btn", type: "button", "aria-label": "Close chat", onclick: function () { self.close(); } }, [icon("close", 20)]);
-    var head = el("div", { class: "head" }, [this.avatarEl, el("div", { class: "titles" }, [this.titleEl, this.subtitleEl]), this.inline ? null : closeBtn]);
+    this.resetBtn = el("button", { class: "btn", type: "button", "aria-label": "Start a new conversation", title: "New conversation", onclick: function () { self.askReset(); } }, [icon("reset", 18)]);
+    var head = el("div", { class: "head" }, [this.avatarEl, el("div", { class: "titles" }, [this.titleEl, this.subtitleEl]), this.resetBtn, this.inline ? null : closeBtn]);
+    this.confirmBar = el("div", { class: "confirm", role: "alert" }, [
+      el("span", { text: "Start a new conversation?" }),
+      el("button", { type: "button", text: "Cancel", onclick: function () { self.confirmBar.classList.remove("show"); } }),
+      el("button", { type: "button", class: "go", text: "Reset", onclick: function () { self.reset(); } }),
+    ]);
+    this.leadLayer = el("div", { class: "lead" });
     this.msgs = el("div", { class: "msgs", "aria-live": "polite" });
     this.chips = el("div", { class: "chips" });
     this.input = el("textarea", { rows: "1", maxlength: "1000", "aria-label": "Your message" });
@@ -164,7 +190,7 @@
     this.brand = el("div", { class: "brand" });
     this.brand.appendChild(document.createTextNode("Powered by "));
     this.brand.appendChild(link("https://github.com/chbenamrane/free-chatbot-generator", "Free Chatbot Generator"));
-    this.panel.appendChild(head); this.panel.appendChild(this.msgs); this.panel.appendChild(this.chips); this.panel.appendChild(this.form); this.panel.appendChild(this.brand);
+    this.panel.appendChild(head); this.panel.appendChild(this.confirmBar); this.panel.appendChild(this.msgs); this.panel.appendChild(this.leadLayer); this.panel.appendChild(this.chips); this.panel.appendChild(this.form); this.panel.appendChild(this.brand);
     this.root.appendChild(this.panel);
     if (!this.inline) this.root.appendChild(this.launcher);
     shadow.appendChild(this.root);
@@ -193,15 +219,17 @@
     if (c.launcherLabel) this.launcher.appendChild(el("span", { text: c.launcherLabel }));
     this.input.placeholder = c.placeholder || DEFAULTS.placeholder;
     this.brand.style.display = c.showBranding ? "" : "none";
+    this.resetBtn.style.display = c.showReset ? "" : "none";
     this.panel.setAttribute("aria-label", title);
     this.renderChips();
   };
 
-  Widget.prototype.update = function (appearance, name, welcome) {
+  Widget.prototype.update = function (appearance, name, welcome, collect) {
     this.cfg = Object.assign({}, DEFAULTS, appearance || {});
     if (name) this.name = name;
     this.apply();
     if (welcome !== undefined && welcome !== this.welcome && !this.hasUserMessage) { this.welcome = welcome; this.msgs.textContent = ""; if (welcome) this.addBot(welcome, null, true); }
+    if (collect !== undefined) { this.setCollectConfig(collect); this.lead = null; this.cardShown = false; this.syncLeadMode(); }
   };
 
   Widget.prototype.renderChips = function () {
@@ -217,7 +245,7 @@
 
   Widget.prototype.open = function () {
     this.root.classList.add("open"); this.launcher.setAttribute("aria-expanded", "true");
-    this.scroll(); var i = this.input; setTimeout(function () { i.focus(); }, 50);
+    this.scroll(); var self = this; setTimeout(function () { var first = self.panel.classList.contains("lead-mode") && self.leadLayer.querySelector("input"); (first || self.input).focus(); }, 50);
   };
   Widget.prototype.close = function () { this.root.classList.remove("open"); this.launcher.setAttribute("aria-expanded", "false"); };
   Widget.prototype.toggle = function () { this.root.classList.contains("open") ? this.close() : this.open(); };
@@ -274,7 +302,7 @@
     var history = this.history.slice(-8);
     if (!this.conversationId) this.conversationId = Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-    this.post("/api/v1/chat", { message: text, history: history, conversationId: this.conversationId, stream: true })
+    this.post("/api/v1/chat", { message: text, history: history, conversationId: this.conversationId, stream: true, visitor: this.visitorName ? { name: this.visitorName } : undefined })
       .then(function (res) {
         if (!res.ok || !res.body) return res.json().catch(function () { return {}; }).then(function (d) { throw new Error((d.error && d.error.message) || "The chatbot is unavailable right now."); });
         var reader = res.body.getReader(), decoder = new TextDecoder(), buffer = "";
@@ -306,7 +334,9 @@
           full = full.trim();
           if (live) { renderText(live.bubble, full); if (doneId) live.row.appendChild(self.feedbackBar(doneId)); }
           self.history.push({ role: "user", content: text }, { role: "assistant", content: full });
+          self.userCount++;
           self.save();
+          self.maybeLeadCard();
         }
         self.setBusy(false); self.scroll();
       });
@@ -322,8 +352,117 @@
       if (!data || !data.h || !data.h.length) return;
       var self = this;
       this.history = data.h; this.conversationId = data.c || null; this.hasUserMessage = true;
+      this.userCount = data.h.filter(function (m) { return m.role === "user"; }).length;
       if (this.welcome) this.addBot(this.welcome, null, true);
       data.h.forEach(function (m) { m.role === "user" ? self.addMe(m.content) : self.addBot(m.content, null, true); });
+    } catch (e) { /* ignore */ }
+  };
+
+  // ---- start a new conversation
+  Widget.prototype.askReset = function () {
+    if (this.busy || !this.hasUserMessage) return;
+    this.confirmBar.classList.add("show");
+  };
+  Widget.prototype.reset = function () {
+    this.confirmBar.classList.remove("show");
+    if (this.busy) return;
+    this.history = []; this.hasUserMessage = false; this.userCount = 0; this.cardShown = false;
+    this.conversationId = newId();
+    try { sessionStorage.removeItem(this.storeKey); } catch (e) { /* storage unavailable */ }
+    this.msgs.textContent = "";
+    if (this.welcome) this.addBot(this.welcome, null, true);
+    this.renderChips();
+    this.syncLeadMode();
+    // the visitor already gave their details: attach them to the new conversation without asking again
+    if (this.lead && this.lead.data && !this.preview) this.sendLead(this.lead.data, this.lead.consent).catch(function () { /* best effort */ });
+    this.input.focus();
+  };
+
+  // ---- visitor information form
+  Widget.prototype.setCollectConfig = function (collect) {
+    this.collect = collect && collect.enabled && collect.fields && collect.fields.length ? collect : null;
+  };
+
+  // "start": the form replaces the chat until it is filled (or skipped).
+  Widget.prototype.syncLeadMode = function () {
+    var self = this, need = !!(this.collect && this.collect.when === "start" && !this.lead && !this.hasUserMessage);
+    this.panel.classList.toggle("lead-mode", need);
+    this.leadLayer.textContent = "";
+    if (need) this.leadLayer.appendChild(this.buildLeadForm(function () { self.syncLeadMode(); self.input.focus(); }, false));
+  };
+
+  // "after": the form appears inside the conversation once the visitor has sent enough messages.
+  Widget.prototype.maybeLeadCard = function () {
+    var self = this, c = this.collect;
+    if (!c || c.when !== "after" || this.lead || this.cardShown || this.userCount < (c.afterMessages || 2)) return;
+    this.cardShown = true;
+    var card = el("div", { class: "card" });
+    card.appendChild(this.buildLeadForm(function (provided) {
+      if (provided) { card.className = "card thanks"; card.textContent = c.thanks || "Thank you!"; } else card.remove();
+      self.scroll();
+    }, true));
+    this.msgs.appendChild(card);
+    this.scroll();
+  };
+
+  Widget.prototype.buildLeadForm = function (onDone, inline) {
+    var self = this, c = this.collect, form = el("form", { class: "lf" }), inputs = {};
+    if (c.title) form.appendChild(el("h3", { text: c.title }));
+    if (c.intro) form.appendChild(el("p", { text: c.intro }));
+    var autocomplete = { name: "name", email: "email", phone: "tel", company: "organization" };
+    c.fields.forEach(function (f) {
+      var input = el("input", { type: f.type === "email" ? "email" : f.type === "tel" ? "tel" : "text", name: f.key, maxlength: "200", autocomplete: autocomplete[f.key] || "off" });
+      if (f.required) input.required = true;
+      inputs[f.key] = input;
+      form.appendChild(el("label", null, [document.createTextNode(f.label), f.required ? el("span", { class: "req", text: " *" }) : null, input]));
+    });
+    var consent = null;
+    if (c.consentText) {
+      consent = el("input", { type: "checkbox" });
+      consent.required = true;
+      form.appendChild(el("label", { class: "consent" }, [consent, el("span", { text: c.consentText })]));
+    }
+    var err = el("div", { class: "err", role: "alert" }); err.style.display = "none";
+    var go = el("button", { class: "go", type: "submit", text: c.submitLabel || (inline ? "Send" : "Start chat") });
+    var actions = el("div", { class: "actions" }, [go]);
+    if (c.skippable) actions.appendChild(el("button", { class: "skip", type: "button", text: "Skip", onclick: function () { self.lead = { skipped: true }; self.saveLead(); onDone(false); } }));
+    form.appendChild(actions); form.appendChild(err);
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var data = {};
+      c.fields.forEach(function (f) { data[f.key] = inputs[f.key].value.trim(); });
+      var accepted = consent ? consent.checked : false;
+      go.disabled = true; err.style.display = "none";
+      self.sendLead(data, accepted).then(function () {
+        self.lead = { data: data, consent: accepted };
+        if (data.name) self.visitorName = data.name;
+        self.saveLead();
+        onDone(true);
+      }).catch(function (error) {
+        err.textContent = error && error.message ? error.message : "Could not send your information.";
+        err.style.display = ""; go.disabled = false;
+      });
+    });
+    return form;
+  };
+
+  Widget.prototype.sendLead = function (data, consent) {
+    if (this.preview) return Promise.resolve(); // the admin preview never stores anything
+    return this.post("/api/v1/leads", { conversationId: this.conversationId, data: data, consent: consent }).then(function (res) {
+      if (res.ok) return;
+      return res.json().catch(function () { return {}; }).then(function (d) { throw new Error((d.error && d.error.message) || "Could not send your information."); });
+    });
+  };
+
+  Widget.prototype.saveLead = function () {
+    if (this.preview) return;
+    try { sessionStorage.setItem(this.leadKey, JSON.stringify({ lead: this.lead, name: this.visitorName })); } catch (e) { /* storage unavailable */ }
+  };
+  Widget.prototype.restoreLead = function () {
+    try {
+      var data = JSON.parse(sessionStorage.getItem(this.leadKey) || "null");
+      if (data && data.lead) { this.lead = data.lead; this.visitorName = data.name || ""; }
     } catch (e) { /* ignore */ }
   };
 
@@ -348,7 +487,7 @@
       .then(function (r) { if (!r.ok) throw new Error("config " + r.status); return r.json(); })
       .then(function (cfg) {
         if (!cfg.enabled) return;
-        instance = new Widget({ key: key, api: api, appearance: cfg.appearance, name: cfg.name, welcome: cfg.welcomeMessage, open: script.getAttribute("data-open") === "true" });
+        instance = new Widget({ key: key, api: api, appearance: cfg.appearance, collect: cfg.collect, name: cfg.name, welcome: cfg.welcomeMessage, open: script.getAttribute("data-open") === "true" });
       })
       .catch(function (e) { console.warn("[FreeChatbot] not started:", e.message); });
   }

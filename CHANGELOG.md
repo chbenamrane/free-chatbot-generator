@@ -2,6 +2,15 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Optional **visitor information form** in the widget (name, e-mail, phone, company, up to 3 custom questions) shown before the chat or after N messages, with required fields, optional skip, consent checkbox and thank-you message; server-side validation; `POST /api/v1/leads`; a **Leads** tab with live preview, contacts list, per-conversation link, delete, delete all and CSV export (formula-injection safe); a Leads tile on the dashboard.
+- The visitor's name is passed to the chatbot (sanitised, never cached).
+- Optional **reset button** in the widget to start a new conversation (with in-widget confirmation).
+- Chat API accepts an optional `visitor.name`.
+
 ## [0.1.0] - 2026-10-22
 
 First public release.

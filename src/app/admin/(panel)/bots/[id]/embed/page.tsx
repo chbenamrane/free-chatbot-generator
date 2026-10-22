@@ -178,6 +178,7 @@ print(r.json()["answer"])`;
             <ul className="list-disc space-y-1 pl-5 text-muted">
               <li><code>POST /api/v1/chat</code>: <code>{"{ message, history?, conversationId?, stream? }"}</code> (1000 characters per message, 20 history turns).</li>
               <li><code>POST /api/v1/feedback</code>: <code>{"{ id, value }"}</code> with value 1, -1 or 0.</li>
+              <li><code>POST /api/v1/leads</code>: <code>{"{ conversationId, data, consent }"}</code> saves the visitor information form (when it is enabled).</li>
               <li><code>GET /api/v1/bots/{"{publicKey}"}/config</code>: name, welcome message and appearance.</li>
               <li>Errors: <code>{`{ "error": { "code", "message" } }`}</code> with status 400, 401, 403, 429 (see <code>Retry-After</code>) or 503.</li>
               <li>Limits: 15 messages per minute per visitor and chatbot (public key), 300 per minute per chatbot. Configurable with <code>CHAT_RATE_PER_MINUTE</code> and <code>CHAT_BOT_RATE_PER_MINUTE</code>.</li>

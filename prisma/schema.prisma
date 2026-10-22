@@ -67,9 +67,11 @@ model Bot {
   updatedAt     DateTime @updatedAt
   knowledgeVersion Int   @default(0) // bumped whenever the knowledge changes (invalidates cached answers)
   appearance    Json     @default("{}") // widget look: colors, position, texts (see src/lib/bots/appearance.ts)
+  collect       Json     @default("{}") // visitor information form (see src/lib/bots/lead-form.ts)
   providers     BotProvider[]
   sources       KnowledgeSource[]
   chatLogs      ChatLog[]
+  leads         Lead[]
 }
 
 // An AI provider configured for one chatbot. Providers are tried in "sortOrder"; when one fails (quota, outage,
@@ -178,4 +180,24 @@ model RateHit {
   createdAt DateTime @default(now())
 
   @@index([key, createdAt])
+}
+
+// ---------- Visitor information (leads) ----------
+
+// Information a visitor gave through the widget form (name, e-mail, phone...), one row per conversation.
+// "data" holds the values of the fields configured on the chatbot; "consent" records the ticked consent box.
+model Lead {
+  id             String   @id @default(cuid())
+  botId          String
+  bot            Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  conversationId String
+  data           Json
+  consent        Boolean  @default(false)
+  origin         String?
+  visitorHash    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([botId, conversationId])
+  @@index([botId, createdAt])
 }

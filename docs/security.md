@@ -28,6 +28,7 @@ This page explains what the app protects and how, so you can deploy it with conf
 | Input | Body size capped (50 KB), message length capped (1000), strict schema validation. |
 | Secret keys | Only the SHA-256 hash is stored; the key is shown once when generated. |
 | Privacy | Visitor IPs are never stored: only a salted hash (to count unique visitors). |
+| Visitor details | The information form is validated **server-side** against the chatbot's own configuration (unknown fields dropped, formats and lengths checked, control characters removed, consent enforced). The CSV export neutralises spreadsheet formulas. A visitor's name is added to the prompt only for that visitor, is sanitised (no quotes or line breaks, 60 characters) and disables the answer cache so it cannot leak to others. See the privacy notes in [leads.md](leads.md). |
 | Prompt injection | The knowledge is wrapped as data and the model is told never to treat it as instructions. This reduces, but cannot eliminate, the risk: do not put secrets in the knowledge or instructions of a public chatbot. |
 
 ## Widget

@@ -1,17 +1,17 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef, useState, useTransition } from "react";
-import { ArrowDown, ArrowUp, ExternalLink } from "lucide-react";
+import { useActionState, useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
+import { ExternalLink } from "lucide-react";
 import { Collapsible } from "@/components/Collapsible";
 import { compactInput, compactLabel, compactPrimary, compactSecondary } from "@/components/form-styles";
 import { PROVIDER_INFO, type Provider } from "@/lib/ai/catalog";
 import { confirmDelete, toast } from "@/lib/swal";
 import {
   listModelsAction,
-  moveProviderAction,
   removeProviderAction,
   saveProviderAction,
   testProviderAction,
+  toggleProviderAction,
   type ProviderCheck,
 } from "./provider-actions";
 
@@ -20,6 +20,7 @@ export type ProviderRow = {
   model: string;
   baseUrl: string | null;
   hasKey: boolean;
+  keyReadable: boolean; // false when the stored key cannot be decrypted (APP_SECRET changed)
   paused: boolean;
   lastError: string | null;
 };
@@ -29,25 +30,52 @@ type Props = {
   provider: Provider;
   row: ProviderRow | null;
   position: number | null; // 1-based place in the priority order, null when not configured
-  canMoveUp: boolean;
-  canMoveDown: boolean;
+  handle?: ReactNode; // drag handle (configured providers only)
 };
 
-function MoveButton({ botId, provider, direction, disabled }: { botId: string; provider: Provider; direction: "up" | "down"; disabled: boolean }) {
-  const Icon = direction === "up" ? ArrowUp : ArrowDown;
+// On/off switch shown in the header. Clicking it never opens or closes the card.
+function EnableSwitch({ botId, provider, row }: { botId: string; provider: Provider; row: ProviderRow | null }) {
+  const [enabled, setEnabled] = useState(row?.enabled ?? false);
+  const [syncedWith, setSyncedWith] = useState(row?.enabled);
+  const [pending, startTransition] = useTransition();
+  const name = PROVIDER_INFO[provider].name;
+
+  // Follow the server value when it changes (after a save or a refresh).
+  if (row?.enabled !== syncedWith) {
+    setSyncedWith(row?.enabled);
+    setEnabled(row?.enabled ?? false);
+  }
+
+  const disabled = !row || pending;
   return (
-    <form action={moveProviderAction}>
-      <input type="hidden" name="botId" value={botId} />
-      <input type="hidden" name="provider" value={provider} />
-      <input type="hidden" name="direction" value={direction} />
-      <button disabled={disabled} aria-label={direction === "up" ? "Move up" : "Move down"} className="rounded p-0.5 hover:bg-background disabled:opacity-30">
-        <Icon className="size-3.5" />
-      </button>
-    </form>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      aria-label={`${enabled ? "Disable" : "Enable"} ${name}`}
+      title={row ? (enabled ? "Disable" : "Enable") : "Save an API key first"}
+      disabled={disabled}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const next = !enabled;
+        setEnabled(next);
+        startTransition(async () => {
+          const result = await toggleProviderAction(botId, provider, next);
+          if (!result.ok) {
+            setEnabled(!next);
+            toast(result.message, "error");
+          }
+        });
+      }}
+      className={`relative h-4 w-7 shrink-0 rounded-full transition-colors disabled:opacity-40 ${enabled ? "bg-success" : "bg-border"}`}
+    >
+      <span className={`absolute top-0.5 left-0.5 size-3 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-3" : ""}`} />
+    </button>
   );
 }
 
-export function ProviderCard({ botId, provider, row, position, canMoveUp, canMoveDown }: Props) {
+export function ProviderCard({ botId, provider, row, position, handle }: Props) {
   const info = PROVIDER_INFO[provider];
   const formRef = useRef<HTMLFormElement>(null);
   const listId = useId();
@@ -68,22 +96,21 @@ export function ProviderCard({ botId, provider, row, position, canMoveUp, canMov
     });
 
   const title = (
-    <span className="flex min-w-0 items-center gap-1.5">
+    <span className="flex min-w-0 items-center gap-2">
+      {handle}
       {position !== null && (
         <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-brand-foreground">{position}</span>
       )}
       <span className="truncate">{info.name}</span>
-      <span className="hidden shrink-0 rounded-full bg-background px-1.5 py-px text-[10px] font-normal text-muted sm:inline">{info.tier}</span>
+      <span className="hidden shrink-0 rounded-full bg-background px-1.5 py-px text-[10px] font-normal text-muted sm:inline">{info.tag}</span>
     </span>
   );
 
   const aside = (
-    <span className="flex shrink-0 items-center gap-1">
+    <span className="flex shrink-0 items-center gap-2">
+      {row && !row.keyReadable && <span className="rounded-full bg-danger/15 px-1.5 py-px text-[10px] text-danger">Key unreadable</span>}
       {row?.paused && <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[10px] text-amber-600">Paused</span>}
-      {row && !row.enabled && <span className="text-[10px] text-muted">Off</span>}
-      {row?.enabled && !row.paused && <span className="size-1.5 rounded-full bg-success" title="Enabled" />}
-      {row && <MoveButton botId={botId} provider={provider} direction="up" disabled={!canMoveUp} />}
-      {row && <MoveButton botId={botId} provider={provider} direction="down" disabled={!canMoveDown} />}
+      <EnableSwitch botId={botId} provider={provider} row={row} />
     </span>
   );
 
@@ -99,6 +126,11 @@ export function ProviderCard({ botId, provider, row, position, canMoveUp, canMov
           )}
         </p>
 
+        {row && !row.keyReadable && (
+          <p className="rounded-md bg-danger/10 px-2 py-1 text-xs text-danger">
+            The saved key cannot be decrypted: APP_SECRET is not the one used when it was saved. Restore the original APP_SECRET or paste the key again.
+          </p>
+        )}
         {row?.lastError && <p className="rounded-md bg-danger/10 px-2 py-1 text-xs text-danger">Last error: {row.lastError}</p>}
 
         <form ref={formRef} action={save} className="space-y-2">
@@ -132,10 +164,6 @@ export function ProviderCard({ botId, provider, row, position, canMoveUp, canMov
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            <label className="mr-1 flex items-center gap-1 text-xs">
-              <input type="checkbox" name="enabled" defaultChecked={row?.enabled ?? true} className="accent-brand" />
-              Enabled
-            </label>
             <button type="submit" disabled={saving} className={compactPrimary}>{saving ? "Saving…" : "Save"}</button>
             <button type="button" disabled={busy} onClick={() => run(testProviderAction)} className={compactSecondary}>Test</button>
             <button type="button" disabled={busy} onClick={() => run(listModelsAction)} className={compactSecondary}>List models</button>
@@ -143,7 +171,7 @@ export function ProviderCard({ botId, provider, row, position, canMoveUp, canMov
               <button
                 type="button"
                 onClick={async () => {
-                  if (await confirmDelete(`Remove ${info.name}?`, "Its saved key is deleted from this chatbot.")) {
+                  if (await confirmDelete(`Remove ${info.name}?`, "Its key is deleted from this chatbot (a backup is kept in ./backups).")) {
                     await removeProviderAction(new FormData(formRef.current!));
                     toast(`${info.name} removed`, "info");
                   }

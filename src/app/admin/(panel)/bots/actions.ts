@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/session";
+import { snapshotKeysQuietly } from "@/lib/backup/keys";
 import { generatePublicKey, generateSecretKey } from "@/lib/bots/keys";
 import { createBotSchema, parseOrigins, slugify, updateBotSchema } from "@/lib/bots/validation";
 
@@ -76,6 +77,7 @@ export async function revokeSecretKeyAction(formData: FormData) {
 
 export async function deleteBotAction(formData: FormData) {
   await requireAdmin();
+  await snapshotKeysQuietly("before-delete-bot"); // the keys of the deleted chatbot stay recoverable in ./backups
   await db.bot.deleteMany({ where: { id: String(formData.get("id") ?? "") } });
   revalidatePath("/admin/bots");
   redirect("/admin/bots");

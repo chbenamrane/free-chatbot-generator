@@ -9,6 +9,7 @@ import { describeAiError } from "@/lib/ai/errors";
 import { collect, listModelsWith, testWith } from "@/lib/ai/engine";
 import { runBotChat } from "@/lib/ai/bot-chain";
 import { buildSystemPrompt } from "@/lib/chat/prompt";
+import { snapshotKeysQuietly } from "@/lib/backup/keys";
 
 export type ProviderFormState = { ok?: boolean; error?: string } | undefined;
 export type ProviderCheck = { ok: boolean; message: string; models?: string[] };
@@ -57,10 +58,8 @@ export async function saveProviderAction(_prev: ProviderFormState, formData: For
   if (!card.model) return { error: "Enter a model name." };
   if (card.model.length > 120) return { error: "Model name too long." };
   if (card.typedKey.length > 500) return { error: "API key too long." };
-  if (card.enabled && !card.apiKey && !card.info.keyOptional) return { error: "Enter an API key before enabling this provider." };
 
   const data = {
-    enabled: card.enabled,
     model: card.model,
     baseUrl: card.provider === "custom" ? card.baseUrl : null,
     ...(card.typedKey ? { keyEnc: encryptSecret(card.typedKey) } : {}),
@@ -73,32 +72,42 @@ export async function saveProviderAction(_prev: ProviderFormState, formData: For
   } else {
     const last = await db.botProvider.aggregate({ where: { botId: card.botId }, _max: { sortOrder: true } });
     await db.botProvider.create({
-      data: { botId: card.botId, provider: card.provider, sortOrder: (last._max.sortOrder ?? -1) + 1, ...data },
+      // A new provider that has a key starts enabled; the switch turns it on or off afterwards.
+      data: { botId: card.botId, provider: card.provider, sortOrder: (last._max.sortOrder ?? -1) + 1, enabled: Boolean(card.apiKey) || Boolean(card.info.keyOptional), ...data },
     });
   }
+  if (card.typedKey) await snapshotKeysQuietly("save");
   revalidatePath(`/admin/bots/${card.botId}`);
   return { ok: true };
 }
 
-// Swaps a provider with its neighbour in the priority order.
-export async function moveProviderAction(formData: FormData) {
+// New priority order after a drag and drop: the list of provider ids of the chatbot, first = tried first.
+export async function reorderProvidersAction(botId: string, orderedProviders: string[]) {
   await requireAdmin();
-  const botId = String(formData.get("botId") ?? "");
-  const provider = String(formData.get("provider") ?? "");
-  const direction = formData.get("direction") === "up" ? -1 : 1;
-
-  const rows = await db.botProvider.findMany({ where: { botId }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] });
-  const index = rows.findIndex((r) => r.provider === provider);
-  const target = index + direction;
-  if (index < 0 || target < 0 || target >= rows.length) return;
-  [rows[index], rows[target]] = [rows[target], rows[index]];
-  await db.$transaction(rows.map((r, i) => db.botProvider.update({ where: { id: r.id }, data: { sortOrder: i } })));
+  const rows = await db.botProvider.findMany({ where: { botId } });
+  const known = new Set(rows.map((r) => r.provider));
+  const order = orderedProviders.filter((p, i) => known.has(p) && orderedProviders.indexOf(p) === i);
+  // Providers missing from the submitted list keep their relative order at the end.
+  for (const r of [...rows].sort((a, b) => a.sortOrder - b.sortOrder)) if (!order.includes(r.provider)) order.push(r.provider);
+  await db.$transaction(order.map((provider, i) => db.botProvider.updateMany({ where: { botId, provider }, data: { sortOrder: i } })));
   revalidatePath(`/admin/bots/${botId}`);
+}
+
+// Enables or disables a provider without touching its key.
+export async function toggleProviderAction(botId: string, provider: string, enabled: boolean): Promise<ProviderCheck> {
+  await requireAdmin();
+  const row = await db.botProvider.findUnique({ where: { botId_provider: { botId, provider } } });
+  if (!row || !isProvider(provider)) return { ok: false, message: "Save the provider first." };
+  if (enabled && !row.keyEnc && !PROVIDER_INFO[provider].keyOptional) return { ok: false, message: "Add an API key before enabling this provider." };
+  await db.botProvider.update({ where: { id: row.id }, data: { enabled, ...(enabled ? { pausedUntil: null, lastError: null } : {}) } });
+  revalidatePath(`/admin/bots/${botId}`);
+  return { ok: true, message: `${PROVIDER_INFO[provider].name} ${enabled ? "enabled" : "disabled"}.` };
 }
 
 export async function removeProviderAction(formData: FormData) {
   await requireAdmin();
   const botId = String(formData.get("botId") ?? "");
+  await snapshotKeysQuietly("before-remove"); // the key can be restored with: npm run keys:restore
   await db.botProvider.deleteMany({ where: { botId, provider: String(formData.get("provider") ?? "") } });
   revalidatePath(`/admin/bots/${botId}`);
 }

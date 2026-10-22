@@ -13,7 +13,7 @@ export function DeleteBotButton({ botId, botName }: { botId: string; botName: st
       }}
     >
       <input type="hidden" name="id" value={botId} />
-      <button className="rounded-md border border-danger/40 px-2.5 py-1.5 text-sm text-danger hover:bg-danger/10">Delete this chatbot</button>
+      <button className="rounded-lg border border-danger/40 px-3 py-1.5 text-sm text-danger hover:bg-danger/10">Delete this chatbot</button>
     </form>
   );
 }

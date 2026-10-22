@@ -8,7 +8,7 @@ import { createBotAction } from "./actions";
 export function CreateBotForm() {
   const [state, action, pending] = useActionState(createBotAction, undefined);
   return (
-    <form action={action} className="space-y-3">
+    <form action={action} className="space-y-4">
       <label className="block">
         <span className={labelClass}>Name</span>
         <input name="name" required maxLength={60} placeholder="Support assistant" className={inputClass} />

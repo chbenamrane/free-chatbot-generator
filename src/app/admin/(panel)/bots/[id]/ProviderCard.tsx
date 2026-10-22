@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useId, useRef, useState, useTransition } from "react";
 import { ArrowDown, ArrowUp, ExternalLink } from "lucide-react";
 import { Collapsible } from "@/components/Collapsible";
-import { inputClass, labelClass, primaryButton, secondaryButton } from "@/components/form-styles";
+import { compactInput, compactLabel, compactPrimary, compactSecondary } from "@/components/form-styles";
 import { PROVIDER_INFO, type Provider } from "@/lib/ai/catalog";
 import { confirmDelete, toast } from "@/lib/swal";
 import {
@@ -40,7 +40,7 @@ function MoveButton({ botId, provider, direction, disabled }: { botId: string; p
       <input type="hidden" name="botId" value={botId} />
       <input type="hidden" name="provider" value={provider} />
       <input type="hidden" name="direction" value={direction} />
-      <button disabled={disabled} aria-label={direction === "up" ? "Move up" : "Move down"} className="rounded p-1 hover:bg-background disabled:opacity-30">
+      <button disabled={disabled} aria-label={direction === "up" ? "Move up" : "Move down"} className="rounded p-0.5 hover:bg-background disabled:opacity-30">
         <Icon className="size-3.5" />
       </button>
     </form>
@@ -68,28 +68,28 @@ export function ProviderCard({ botId, provider, row, position, canMoveUp, canMov
     });
 
   const title = (
-    <span className="flex flex-wrap items-center gap-2">
+    <span className="flex min-w-0 items-center gap-1.5">
       {position !== null && (
-        <span className="flex size-5 items-center justify-center rounded-full bg-brand text-xs font-semibold text-brand-foreground">{position}</span>
+        <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-brand-foreground">{position}</span>
       )}
-      {info.name}
-      <span className="rounded-full bg-background px-2 py-0.5 text-xs font-normal text-muted">{info.tag}</span>
+      <span className="truncate">{info.name}</span>
+      <span className="hidden shrink-0 rounded-full bg-background px-1.5 py-px text-[10px] font-normal text-muted sm:inline">{info.tier}</span>
     </span>
   );
 
   const aside = (
-    <span className="flex items-center gap-1.5">
-      {row?.paused && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-600">Paused</span>}
-      {row && !row.enabled && <span className="text-xs text-muted">Disabled</span>}
-      {row?.enabled && !row.paused && <span className="size-2 rounded-full bg-success" title="Enabled" />}
+    <span className="flex shrink-0 items-center gap-1">
+      {row?.paused && <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[10px] text-amber-600">Paused</span>}
+      {row && !row.enabled && <span className="text-[10px] text-muted">Off</span>}
+      {row?.enabled && !row.paused && <span className="size-1.5 rounded-full bg-success" title="Enabled" />}
       {row && <MoveButton botId={botId} provider={provider} direction="up" disabled={!canMoveUp} />}
       {row && <MoveButton botId={botId} provider={provider} direction="down" disabled={!canMoveDown} />}
     </span>
   );
 
   return (
-    <Collapsible title={title} aside={aside}>
-      <div className="space-y-3">
+    <Collapsible compact title={title} aside={aside}>
+      <div className="space-y-2">
         <p className="text-xs text-muted">
           {info.help}{" "}
           {info.keyUrl && (
@@ -99,46 +99,46 @@ export function ProviderCard({ botId, provider, row, position, canMoveUp, canMov
           )}
         </p>
 
-        {row?.lastError && <p className="rounded-md bg-danger/10 px-2.5 py-1.5 text-xs text-danger">Last error: {row.lastError}</p>}
+        {row?.lastError && <p className="rounded-md bg-danger/10 px-2 py-1 text-xs text-danger">Last error: {row.lastError}</p>}
 
-        <form ref={formRef} action={save} className="space-y-3">
+        <form ref={formRef} action={save} className="space-y-2">
           <input type="hidden" name="botId" value={botId} />
           <input type="hidden" name="provider" value={provider} />
 
           {provider === "custom" && (
             <label className="block">
-              <span className={labelClass}>Base URL</span>
-              <input name="baseUrl" defaultValue={row?.baseUrl ?? ""} placeholder="http://localhost:11434/v1" className={`${inputClass} font-mono text-xs`} />
+              <span className={compactLabel}>Base URL</span>
+              <input name="baseUrl" defaultValue={row?.baseUrl ?? ""} placeholder="http://localhost:11434/v1" className={`${compactInput} font-mono`} />
             </label>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             <label className="block">
-              <span className={labelClass}>API key {info.keyOptional && <span className="font-normal text-muted">(optional)</span>}</span>
+              <span className={compactLabel}>API key {info.keyOptional && <span className="font-normal text-muted">(optional)</span>}</span>
               <input
                 name="apiKey"
                 type="password"
                 autoComplete="off"
                 maxLength={500}
                 placeholder={row?.hasKey ? "Saved. Leave empty to keep." : "Paste your key"}
-                className={`${inputClass} font-mono text-xs`}
+                className={`${compactInput} font-mono`}
               />
             </label>
             <label className="block">
-              <span className={labelClass}>Model</span>
-              <input name="model" list={listId} defaultValue={row?.model ?? info.defaultModel} maxLength={120} className={`${inputClass} font-mono text-xs`} />
+              <span className={compactLabel}>Model</span>
+              <input name="model" list={listId} defaultValue={row?.model ?? info.defaultModel} maxLength={120} className={`${compactInput} font-mono`} />
               <datalist id={listId}>{models.map((m) => <option key={m} value={m} />)}</datalist>
             </label>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="mr-2 flex items-center gap-1.5 text-sm">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <label className="mr-1 flex items-center gap-1 text-xs">
               <input type="checkbox" name="enabled" defaultChecked={row?.enabled ?? true} className="accent-brand" />
               Enabled
             </label>
-            <button type="submit" disabled={saving} className={primaryButton}>{saving ? "Saving…" : "Save"}</button>
-            <button type="button" disabled={busy} onClick={() => run(testProviderAction)} className={secondaryButton}>Test</button>
-            <button type="button" disabled={busy} onClick={() => run(listModelsAction)} className={secondaryButton}>List models</button>
+            <button type="submit" disabled={saving} className={compactPrimary}>{saving ? "Saving…" : "Save"}</button>
+            <button type="button" disabled={busy} onClick={() => run(testProviderAction)} className={compactSecondary}>Test</button>
+            <button type="button" disabled={busy} onClick={() => run(listModelsAction)} className={compactSecondary}>List models</button>
             {row && (
               <button
                 type="button"
@@ -154,7 +154,7 @@ export function ProviderCard({ botId, provider, row, position, canMoveUp, canMov
               </button>
             )}
           </div>
-          {state?.error && <p role="alert" className="text-sm text-danger">{state.error}</p>}
+          {state?.error && <p role="alert" className="text-xs text-danger">{state.error}</p>}
         </form>
       </div>
     </Collapsible>

@@ -14,27 +14,27 @@ export default async function PanelLayout({ children }: { children: ReactNode })
   const admin = await requireAdmin();
   return (
     <div className="flex flex-1">
-      <aside className="flex w-52 shrink-0 flex-col border-r border-border bg-surface p-3">
-        <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
+      <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface p-4">
+        <div className="mb-6 flex items-center gap-2 font-semibold">
           <Bot className="size-5 text-brand" /> Free Chatbot Generator
         </div>
-        <nav className="flex-1 space-y-0.5">
+        <nav className="flex-1 space-y-1">
           {NAV.map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href} className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm hover:bg-background">
+            <Link key={href} href={href} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-background">
               <Icon className="size-4" /> {label}
             </Link>
           ))}
         </nav>
-        <div className="border-t border-border pt-2.5 text-xs text-muted">
-          <p className="mb-1.5 truncate">{admin.email}</p>
+        <div className="border-t border-border pt-3 text-xs text-muted">
+          <p className="mb-2 truncate">{admin.email}</p>
           <form action={logoutAction}>
-            <button className="flex items-center gap-2 hover:text-foreground">
-              <LogOut className="size-3.5" /> Sign out
+            <button className="flex items-center gap-2 text-sm hover:text-foreground">
+              <LogOut className="size-4" /> Sign out
             </button>
           </form>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-5">{children}</main>
+      <main className="min-w-0 flex-1 p-8">{children}</main>
     </div>
   );
 }

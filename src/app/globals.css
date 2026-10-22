@@ -40,11 +40,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Compact UI: every rem-based size (Tailwind spacing and text) is ~12% smaller than the default 16px. */
-html {
-  font-size: 14px;
-}
-
 body {
   background: var(--background);
   color: var(--foreground);

@@ -19,6 +19,7 @@ model Admin {
   email        String         @unique
   passwordHash String
   createdAt    DateTime       @default(now())
+  dashboardLatestCount Int    @default(10) // how many latest messages the dashboard shows
   sessions     AdminSession[]
 }
 

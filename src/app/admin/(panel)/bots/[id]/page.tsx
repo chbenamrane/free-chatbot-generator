@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { ArrowLeft } from "lucide-react";
 import { Collapsible } from "@/components/Collapsible";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/session";
@@ -23,14 +21,6 @@ export default async function BotPage({ params }: PageProps<"/admin/bots/[id]">)
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Link href="/admin/bots" aria-label="All chatbots" className="rounded-lg p-1.5 text-muted hover:bg-surface hover:text-foreground">
-          <ArrowLeft className="size-5" />
-        </Link>
-        <h1 className="text-2xl font-semibold">{bot.name}</h1>
-        {!bot.enabled && <span className="rounded-full bg-border px-2.5 py-0.5 text-xs text-muted">Disabled</span>}
-      </div>
-
       {/* Two columns on wide screens: configuration on the left, AI providers and testing on the right. */}
       <div className="grid items-start gap-5 xl:grid-cols-2">
         <div className="space-y-5">

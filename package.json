@@ -12,7 +12,7 @@
     "db:deploy": "prisma migrate deploy",
     "keys:backup": "tsx --conditions react-server scripts/keys.ts backup",
     "keys:restore": "tsx --conditions react-server scripts/keys.ts restore",
-    "test": "node --conditions react-server --import tsx --test \"tests/**/*.test.ts\""
+    "test": "node --env-file-if-exists=.env --conditions react-server --import tsx --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",

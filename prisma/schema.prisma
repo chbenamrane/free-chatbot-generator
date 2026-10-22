@@ -64,7 +64,9 @@ model Bot {
   enabled       Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  knowledgeVersion Int   @default(0) // bumped whenever the knowledge changes (invalidates cached answers)
   providers     BotProvider[]
+  sources       KnowledgeSource[]
 }
 
 // An AI provider configured for one chatbot. Providers are tried in "sortOrder"; when one fails (quota, outage,
@@ -86,4 +88,40 @@ model BotProvider {
 
   @@unique([botId, provider])
   @@index([botId, sortOrder])
+}
+
+// ---------- Knowledge (what a chatbot has learned) ----------
+
+// One piece of knowledge given to a chatbot: pasted text, a Q&A pair, a web page or a file. The original text is kept
+// so it can be edited or re-indexed; it is cut into chunks for searching.
+model KnowledgeSource {
+  id         String           @id @default(cuid())
+  botId      String
+  bot        Bot              @relation(fields: [botId], references: [id], onDelete: Cascade)
+  type       String // text | faq | url | file
+  origin     String           @default("admin") // admin | improvement (answer to an unanswered question)
+  title      String
+  content    String // original text (for faq: the question, a blank line, then the answer)
+  url        String?
+  chunkCount Int              @default(0)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  chunks     KnowledgeChunk[]
+
+  @@index([botId, createdAt])
+}
+
+// A searchable piece of a source. "tsv" is a generated full-text column (see the migration): it is never written by the app.
+model KnowledgeChunk {
+  id       String                   @id @default(cuid())
+  sourceId String
+  source   KnowledgeSource          @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  botId    String
+  position Int
+  content  String
+  tsv      Unsupported("tsvector")?
+
+  @@index([botId])
+  @@index([sourceId])
+  @@index([tsv], type: Gin)
 }

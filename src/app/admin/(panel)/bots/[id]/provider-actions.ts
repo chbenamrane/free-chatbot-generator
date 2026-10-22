@@ -7,8 +7,7 @@ import { encryptSecret, decryptSecret } from "@/lib/crypto/secret-box";
 import { PROVIDER_INFO, isProvider, type Provider } from "@/lib/ai/catalog";
 import { describeAiError } from "@/lib/ai/errors";
 import { collect, listModelsWith, testWith } from "@/lib/ai/engine";
-import { runBotChat } from "@/lib/ai/bot-chain";
-import { buildSystemPrompt } from "@/lib/chat/prompt";
+import { answerQuestion } from "@/lib/chat/respond";
 import { snapshotKeysQuietly } from "@/lib/backup/keys";
 
 export type ProviderFormState = { ok?: boolean; error?: string } | undefined;
@@ -157,11 +156,11 @@ export async function playgroundAction(_prev: PlaygroundState, formData: FormDat
   const bot = await db.bot.findUnique({ where: { id: String(formData.get("botId") ?? "") } });
   if (!bot) return { error: "This chatbot no longer exists." };
 
-  const run = await runBotChat(bot.id, buildSystemPrompt(bot), [{ role: "user", content: question }]);
+  const run = await answerQuestion(bot, question);
   if (!run.ok) return { error: run.error, question };
   try {
-    const answer = await collect(run.stream);
-    const via = `${PROVIDER_INFO[run.provider].name} · ${run.model}${run.fallback ? " (fallback)" : ""}`;
+    const answer = (await collect(run.stream)).trim();
+    const via = `${PROVIDER_INFO[run.provider].name} · ${run.model}${run.fallback ? " (fallback)" : ""} · ${run.knowledgeHits} knowledge piece${run.knowledgeHits === 1 ? "" : "s"}${run.state.unanswered ? " · flagged as unanswered" : ""}`;
     revalidatePath(`/admin/bots/${bot.id}`); // provider status may have changed
     return { answer, via, question };
   } catch (error) {

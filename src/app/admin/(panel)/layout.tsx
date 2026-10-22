@@ -1,11 +1,14 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Bot, LayoutDashboard, LogOut } from "lucide-react";
+import { Bot, LayoutDashboard, LogOut, MessageSquare } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/session";
 import { logoutAction } from "../login/actions";
 
 // Navigation grows with each phase (bots, knowledge, improvement, settings, docs).
-const NAV = [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }];
+const NAV = [
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/bots", label: "Chatbots", icon: MessageSquare },
+];
 
 export default async function PanelLayout({ children }: { children: ReactNode }) {
   const admin = await requireAdmin();

@@ -43,3 +43,25 @@ model LoginAttempt {
 
   @@index([key, createdAt])
 }
+
+// ---------- Chatbots ----------
+
+// One chatbot. The public key (pk_...) identifies it in the widget and is safe to expose in a web page;
+// it only works from the allowed origins. The secret key (sk_...) is for server-to-server calls: only its
+// SHA-256 hash is stored, the key itself is shown once when generated.
+model Bot {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  description   String   @default("")
+  publicKey     String   @unique
+  secretKeyHash String?  @unique
+  secretKeyHint String? // last characters of the secret key, to recognize it in the admin
+  allowedOrigins String[] // e.g. "https://example.com"; empty = any origin
+  languages     String[] // language codes the bot answers in (see src/lib/languages.ts)
+  instructions  String   @default("") // extra system instructions (tone, scope, rules)
+  welcomeMessage String  @default("")
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

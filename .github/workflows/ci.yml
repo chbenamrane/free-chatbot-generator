@@ -38,6 +38,32 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: fcg
+          POSTGRES_PASSWORD: fcg
+          POSTGRES_DB: fcg
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fcg -d fcg"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t free-chatbot-generator .
+      - name: Start the container (applies the migrations) and call it
+        run: |
+          docker run -d --name app --network host             -e DATABASE_URL="postgresql://fcg:fcg@localhost:5432/fcg?schema=public"             -e APP_SECRET="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="             free-chatbot-generator
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /tmp/body -w %{http_code} http://127.0.0.1:3010/api/v1/bots/pk_health/config || true)
+            [ "$code" = "401" ] && break
+            sleep 3
+          done
+          docker logs app
+          echo "health status: $code"; cat /tmp/body; echo
+          [ "$code" = "401" ] && grep -q invalid_key /tmp/body
+          test "$(curl -s -o /dev/null -w %{http_code} http://127.0.0.1:3010/admin/login)" = "307"
+          curl -sf http://127.0.0.1:3010/widget.js | head -c 80

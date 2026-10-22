@@ -5,18 +5,21 @@
 
 FROM node:22-alpine AS build
 WORKDIR /app
+RUN apk add --no-cache openssl
+# The build never connects to the database; the variable only has to exist because the Prisma config reads it
+# (npm ci runs `prisma generate`).
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build" NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
 # "postinstall" runs "prisma generate", which needs the schema.
 COPY prisma ./prisma
 COPY prisma.config.ts ./
 RUN npm ci
 COPY . .
-# The build does not connect to the database; the variable only has to exist for the Prisma config.
-ENV DATABASE_URL="postgresql://build:build@localhost:5432/build" NEXT_TELEMETRY_DISABLED=1
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-alpine AS run
 WORKDIR /app
+RUN apk add --no-cache openssl
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3010 KEY_BACKUP_DIR=/data/backups
 RUN addgroup -S app && adduser -S app -G app && mkdir -p /data/backups && chown -R app:app /data
 COPY --from=build --chown=app:app /app/package.json /app/package-lock.json ./

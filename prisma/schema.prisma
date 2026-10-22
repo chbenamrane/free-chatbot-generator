@@ -1,0 +1,45 @@
+// Database schema: every "model" becomes a PostgreSQL table.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Admin area ----------
+
+// The instance has exactly one admin. "singleton" is always true and unique, so the database itself
+// refuses a second row (the first-run setup page cannot be raced).
+model Admin {
+  id           String         @id @default(cuid())
+  singleton    Boolean        @unique @default(true)
+  email        String         @unique
+  passwordHash String
+  createdAt    DateTime       @default(now())
+  sessions     AdminSession[]
+}
+
+// Only the SHA-256 of the session token is stored, never the token itself.
+model AdminSession {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+  @@index([expiresAt])
+}
+
+// Failed sign-in attempts, counted per e-mail and per IP address (brute-force protection).
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  key       String // "email:<address>" or "ip:<address>"
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}

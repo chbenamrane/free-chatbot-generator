@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Free Chatbot Generator
 
-## Getting Started
+Create custom chatbots that run on **free AI APIs**, teach them your content, and embed them in any website
+with one script tag or through a REST API. Self-hosted, open source (MIT).
 
-First, run the development server:
+> **Status: work in progress.** Phase 1 (foundations) is done: project setup, database, admin sign-in.
+> Roadmap below.
+
+## Planned features
+
+- **Multiple chatbots** per instance: rename them, customize their look, each with its own API keys and allowed origins.
+- **Free AI providers with automatic fallback**: Gemini, Groq, OpenRouter, Cerebras, Mistral. When one hits its quota, the next one takes over.
+- **Paid providers when you need them**: OpenAI, Anthropic, any OpenAI-compatible endpoint.
+- **Learning**: feed your bot text, FAQs, web pages and files.
+- **Improvement loop**: questions the bot could not answer are collected; answer them once and the bot remembers.
+- **Dashboard**: statistics and the latest messages (the number shown is configurable).
+- **Multilingual**: each bot answers in the languages you choose.
+- **Embed anywhere**: `<script>` snippet or REST API.
+
+## Stack
+
+Next.js (App Router) · TypeScript · Prisma · PostgreSQL · Tailwind CSS
+
+## Getting started (development)
+
+Requirements: Node.js 22+, PostgreSQL 15+ (or Docker).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <this repository>
+cd free-chatbot-generator
+npm install
+
+# 1. Database (skip if you already have PostgreSQL)
+docker compose up -d
+
+# 2. Configuration
+cp .env.example .env
+# edit .env: set DATABASE_URL and generate APP_SECRET (command inside the file)
+
+# 3. Create the tables
+npm run db:migrate
+
+# 4. Run
+npm run dev        # http://localhost:3010/admin
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+On first visit you are asked to create the admin account. There is exactly one admin per instance.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | What it does |
+|---|---|
+| `npm run dev` | Development server on port 3010 |
+| `npm run build` / `npm start` | Production build and server |
+| `npm run db:migrate` | Create/apply migrations in development |
+| `npm run db:deploy` | Apply migrations in production |
+| `npm run lint` | ESLint |
 
-## Learn More
+## License
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+[MIT](LICENSE)

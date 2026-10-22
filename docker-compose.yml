@@ -1,16 +1,36 @@
-# Local PostgreSQL for development:  docker compose up -d
+# Full stack in one command:  docker compose up -d
+# Needs a .env file next to this one (copy .env.example and set APP_SECRET and POSTGRES_PASSWORD).
 services:
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://fcg:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/fcg?schema=public
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env}
+      APP_URL: ${APP_URL:-}
+    ports:
+      - "${PORT:-3010}:3010"
+    volumes:
+      - fcg-backups:/data/backups
+
   db:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: fcg
-      POSTGRES_PASSWORD: fcg
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: fcg
-    ports:
-      - "5432:5432"
     volumes:
       - fcg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fcg -d fcg"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   fcg-data:
+  fcg-backups:

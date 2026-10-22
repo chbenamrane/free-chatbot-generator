@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Bot, LayoutDashboard, LogOut, MessageSquare } from "lucide-react";
+import { BookOpen, Bot, LayoutDashboard, LogOut, MessageSquare } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/session";
 import { logoutAction } from "../login/actions";
 
@@ -25,6 +25,14 @@ export default async function PanelLayout({ children }: { children: ReactNode })
             </Link>
           ))}
         </nav>
+        <a
+          href="https://github.com/chbenamrane/free-chatbot-generator/tree/main/docs"
+          target="_blank"
+          rel="noreferrer"
+          className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted hover:bg-background hover:text-foreground"
+        >
+          <BookOpen className="size-4" /> Documentation
+        </a>
         <div className="border-t border-border pt-3 text-xs text-muted">
           <p className="mb-2 truncate">{admin.email}</p>
           <form action={logoutAction}>

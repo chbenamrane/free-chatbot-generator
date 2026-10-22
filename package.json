@@ -1,7 +1,37 @@
 {
   "name": "free-chatbot-generator",
   "version": "0.1.0",
+  "description": "Create custom chatbots that run on free AI APIs with automatic fallback, teach them your content and embed them anywhere. Self-hosted, Next.js + Prisma + PostgreSQL.",
   "private": true,
+  "license": "MIT",
+  "author": "Chams eddine BENAMRANE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chbenamrane/free-chatbot-generator.git"
+  },
+  "homepage": "https://github.com/chbenamrane/free-chatbot-generator#readme",
+  "bugs": {
+    "url": "https://github.com/chbenamrane/free-chatbot-generator/issues"
+  },
+  "keywords": [
+    "chatbot",
+    "chatbot-generator",
+    "ai",
+    "gemini",
+    "groq",
+    "openrouter",
+    "mistral",
+    "cerebras",
+    "nextjs",
+    "prisma",
+    "postgresql",
+    "self-hosted",
+    "widget",
+    "rag"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev -p 3010",
     "build": "next build",
@@ -13,7 +43,8 @@
     "keys:backup": "tsx --conditions react-server scripts/keys.ts backup",
     "keys:restore": "tsx --conditions react-server scripts/keys.ts restore",
     "test": "node --env-file-if-exists=.env --conditions react-server --import tsx --test \"tests/**/*.test.ts\"",
-    "check": "npm run lint && npm run build && npm test"
+    "check": "npm run lint && npm run build && npm test",
+    "db:dev-up": "docker compose -f docker-compose.dev.yml up -d"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",
@@ -27,7 +58,8 @@
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",
     "sweetalert2": "^11.26.25",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "prisma": "^7.10.1"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
@@ -39,7 +71,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "jsdom": "^29.1.1",
-    "prisma": "^7.10.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"

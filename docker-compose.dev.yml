@@ -1,0 +1,16 @@
+# Local PostgreSQL for development:  docker compose up -d
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fcg
+      POSTGRES_PASSWORD: fcg
+      POSTGRES_DB: fcg
+    ports:
+      - "5432:5432"
+    volumes:
+      - fcg-data:/var/lib/postgresql/data
+
+volumes:
+  fcg-data:

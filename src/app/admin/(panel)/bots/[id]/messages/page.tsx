@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
+import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/session";
 import { needsAnswer } from "@/lib/chat/improve";
@@ -24,7 +25,7 @@ export default async function MessagesPage({ params, searchParams }: PageProps<"
   const filter: Filter = FILTERS.some((f) => f.id === query.filter) ? (query.filter as Filter) : "unanswered";
   const page = Math.max(1, Number(Array.isArray(query.page) ? query.page[0] : query.page) || 1);
 
-  const where =
+  const where: Prisma.ChatLogWhereInput =
     filter === "unanswered" ? { botId: id, ...needsAnswer } : filter === "negative" ? { botId: id, feedback: -1, handled: false } : { botId: id };
 
   const [logs, total, toAnswer, negative] = await Promise.all([

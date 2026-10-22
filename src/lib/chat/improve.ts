@@ -1,12 +1,13 @@
 // Improvement loop: turns the admin's answer to an unanswered question into knowledge, and closes the matching messages.
 
 import "server-only";
+import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { addSource, faqContent, KnowledgeError } from "@/lib/knowledge/ingest";
 import { normalizeQuestion } from "./cache";
 
 // Messages the chatbot could not answer (it said it did not know, or no AI provider was available).
-export const needsAnswer = { OR: [{ unanswered: true }, { status: "busy" }], handled: false } as const;
+export const needsAnswer: Prisma.ChatLogWhereInput = { OR: [{ unanswered: true }, { status: "busy" }], handled: false };
 
 // Saves "question + answer" as a Q&A of the chatbot and marks as handled the message and every identical pending question.
 export async function teachAnswer(botId: string, logId: string, answer: string, question?: string): Promise<{ closed: number }> {

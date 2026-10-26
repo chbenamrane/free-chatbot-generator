@@ -3,7 +3,7 @@
 #   docker run -p 3010:3010 --env-file .env free-chatbot-generator
 # The container applies the database migrations on start, then serves the app on $PORT (default 3010).
 
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache openssl
 # The build never connects to the database; the variable only has to exist because the Prisma config reads it
@@ -17,7 +17,7 @@ RUN npm ci
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
-FROM node:22-alpine AS run
+FROM node:26-alpine AS run
 WORKDIR /app
 RUN apk add --no-cache openssl
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3010 KEY_BACKUP_DIR=/data/backups

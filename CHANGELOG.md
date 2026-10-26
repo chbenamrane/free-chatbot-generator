@@ -4,6 +4,15 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Security
+
+- The visitor IP used by rate limiting is now read from a header only when `TRUST_PROXY` is set (`cloudflare` or `xff`); by default forged forwarding headers can no longer bypass the limits.
+- Optional `SETUP_TOKEN` protects the first-run admin setup.
+- Failed sign-in records are purged even when nobody signs in successfully.
+- Optional `RETENTION_DAYS` deletes old chat messages.
+- `X-Content-Type-Options` and `Referrer-Policy` on every response; Dependabot and `npm audit` in CI; read-only CI token; the development database only listens on localhost.
+- Updated Next.js, React and dotenv.
+
 ### Added
 
 - Optional **visitor information form** in the widget (name, e-mail, phone, company, up to 3 custom questions) shown before the chat or after N messages, with required fields, optional skip, consent checkbox and thank-you message; server-side validation; `POST /api/v1/leads`; a **Leads** tab with live preview, contacts list, per-conversation link, delete, delete all and CSV export (formula-injection safe); a Leads tile on the dashboard.

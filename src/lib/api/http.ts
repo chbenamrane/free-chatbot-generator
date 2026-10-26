@@ -1,5 +1,7 @@
 // JSON helpers and the error type of the public API.
 
+import { clientIpFrom } from "@/lib/client-ip";
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -36,7 +38,5 @@ export async function readJson(request: Request, maxBytes = 50_000): Promise<unk
   }
 }
 
-// IP address of the visitor. Only trust these headers behind your own reverse proxy (see docs/security.md).
-export function clientIp(headers: Headers): string {
-  return headers.get("cf-connecting-ip") ?? headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() ?? "unknown";
-}
+// IP address of the visitor, or null when no proxy is trusted (TRUST_PROXY, see docs/security.md).
+export const clientIp = (headers: Headers) => clientIpFrom(headers);

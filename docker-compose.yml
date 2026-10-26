@@ -11,6 +11,9 @@ services:
       DATABASE_URL: postgresql://fcg:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/fcg?schema=public
       APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env}
       APP_URL: ${APP_URL:-}
+      TRUST_PROXY: ${TRUST_PROXY:-none}
+      SETUP_TOKEN: ${SETUP_TOKEN:-}
+      RETENTION_DAYS: ${RETENTION_DAYS:-}
     ports:
       - "${PORT:-3010}:3010"
     volumes:

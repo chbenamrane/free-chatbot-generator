@@ -33,6 +33,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Baseline for every page and API answer (HTTPS and HSTS are the reverse proxy's job).
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+      {
         // The widget script is embedded on other websites: let browsers and CDNs cache it for an hour.
         source: "/widget.js",
         headers: [

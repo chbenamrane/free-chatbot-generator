@@ -13,7 +13,7 @@ export default async function SetupPage() {
   if ((await db.admin.count()) > 0) redirect(LOGIN_PATH);
   return (
     <AuthCard title="Welcome" subtitle="Create the admin account of this instance. This page disappears once an account exists.">
-      <SetupForm />
+      <SetupForm needsToken={Boolean(process.env.SETUP_TOKEN)} />
     </AuthCard>
   );
 }

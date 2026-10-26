@@ -28,7 +28,20 @@ const chatBody = z.object({
   visitor: z.object({ name: z.string().max(100).optional() }).optional(), // name given in the visitor form
 });
 
-const visitorHash = (ip: string) => createHash("sha256").update(`${process.env.APP_SECRET ?? ""}:${ip}`).digest("hex").slice(0, 16);
+const visitorHash = (ip: string | null) => createHash("sha256").update(`${process.env.APP_SECRET ?? ""}:${ip ?? "unknown"}`).digest("hex").slice(0, 16);
+
+// Per-visitor limit key and ceiling. Without a trusted proxy (TRUST_PROXY) visitors cannot be told apart: they share
+// one bucket with a higher ceiling, and the per-chatbot limit remains the real guard.
+function visitorLimit(prefix: string, botId: string, ip: string | null, limit: number) {
+  return { key: `${prefix}:${botId}:${ip ?? "shared"}`, limit: ip ? limit : limit * 10 };
+}
+
+// Deletes old messages when RETENTION_DAYS is set (checked on about 1 request in 100).
+async function purgeOldLogs() {
+  const days = Number(process.env.RETENTION_DAYS);
+  if (!(days > 0) || Math.random() >= 0.01) return;
+  await db.chatLog.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - days * 86_400_000) } } });
+}
 
 function cors(auth: ApiAuth, methods: string) {
   return corsHeaders(auth.origin, auth.originAllowed, methods);
@@ -66,10 +79,13 @@ export async function chatPost(request: Request): Promise<Response> {
     const visitorName = visitor?.name ? cleanVisitorName(visitor.name) : "";
 
     const ip = clientIp(request.headers);
-    if (auth.kind === "public" && !(await takeRate(`chat:${bot.id}:${ip}`, RATE_PER_VISITOR, 60_000))) {
+    const perVisitor = visitorLimit("chat", bot.id, ip, RATE_PER_VISITOR);
+    if (auth.kind === "public" && !(await takeRate(perVisitor.key, perVisitor.limit, 60_000))) {
       throw new ApiError(429, "rate_limited", "Too many messages. Please wait a moment.", 30);
     }
     if (!(await takeRate(`chat:${bot.id}`, RATE_PER_BOT, 60_000))) throw new ApiError(429, "rate_limited", "This chatbot is receiving too many messages. Please try again shortly.", 30);
+
+    await purgeOldLogs().catch((error) => console.error("Log retention error", error));
 
     const started = Date.now();
     const base = { botId: bot.id, conversationId: conversationId ?? null, question: message, visitorHash: auth.kind === "public" ? visitorHash(ip) : null, origin: auth.origin };
@@ -196,7 +212,8 @@ export async function feedbackPost(request: Request): Promise<Response> {
     if (!auth.originAllowed) throw new ApiError(403, "origin_not_allowed", "This website is not allowed to use this chatbot.");
     const parsed = feedbackBody.safeParse(await readJson(request, 2_000));
     if (!parsed.success) throw new ApiError(400, "invalid_request", "Send { id, value } with value 1, -1 or 0.");
-    if (auth.kind === "public" && !(await takeRate(`feedback:${auth.bot.id}:${clientIp(request.headers)}`, 60, 60_000))) {
+    const perVisitor = visitorLimit("feedback", auth.bot.id, clientIp(request.headers), 60);
+    if (auth.kind === "public" && !(await takeRate(perVisitor.key, perVisitor.limit, 60_000))) {
       throw new ApiError(429, "rate_limited", "Too many requests.", 30);
     }
     const { count } = await db.chatLog.updateMany({ where: { id: parsed.data.id, botId: auth.bot.id }, data: { feedback: parsed.data.value } });
@@ -221,7 +238,8 @@ export async function leadPost(request: Request): Promise<Response> {
     const parsed = leadBody.safeParse(await readJson(request, 10_000));
     if (!parsed.success) throw new ApiError(400, "invalid_request", "Send { conversationId, data, consent }.");
     const ip = clientIp(request.headers);
-    if (auth.kind === "public" && !(await takeRate(`lead:${auth.bot.id}:${ip}`, 10, 60_000))) throw new ApiError(429, "rate_limited", "Too many requests.", 30);
+    const perVisitor = visitorLimit("lead", auth.bot.id, ip, 10);
+    if (auth.kind === "public" && !(await takeRate(perVisitor.key, perVisitor.limit, 60_000))) throw new ApiError(429, "rate_limited", "Too many requests.", 30);
 
     const result = validateLead(parseLeadForm(auth.bot.collect), parsed.data.data, parsed.data.consent);
     if (!result.ok) throw new ApiError(400, "invalid_lead", result.message);

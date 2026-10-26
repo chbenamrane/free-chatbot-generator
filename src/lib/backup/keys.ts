@@ -8,7 +8,7 @@ import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { db } from "@/lib/db";
 
-export const BACKUP_DIR = path.resolve(process.env.KEY_BACKUP_DIR || "backups");
+export const BACKUP_DIR = path.resolve(/*turbopackIgnore: true*/ process.env.KEY_BACKUP_DIR || "backups");
 const KEEP = 40; // number of snapshots kept
 
 type KeyRow = {

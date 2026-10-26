@@ -69,7 +69,7 @@ Update: `git pull && npm ci && npm run db:deploy && npm run build && sudo system
 
 Always put the app behind HTTPS. Two things matter:
 
-1. **Forward the visitor's IP address**, because rate limiting is per visitor. The app trusts `cf-connecting-ip` (Cloudflare) or the **last** value of `X-Forwarded-For` (the one added by your own proxy).
+1. **Forward the visitor's IP address**, because rate limiting is per visitor. Tell the app which header to trust with `TRUST_PROXY=xff` (the **last** value of `X-Forwarded-For`, the one added by your own proxy) or `TRUST_PROXY=cloudflare` (`cf-connecting-ip`). The default, `none`, ignores both: visitors then share one rate-limit bucket.
 2. **Pass the host and protocol** (`X-Forwarded-Host`, `X-Forwarded-Proto`) or set `APP_URL`.
 3. **Do not buffer streams**: the app sets `X-Accel-Buffering: no`, which nginx honors.
 
@@ -99,6 +99,8 @@ server {
     }
 }
 ```
+
+Set `SETUP_TOKEN` before the first start of a public instance, so nobody else can create the admin account.
 
 Behind Cloudflare, make sure the origin only accepts Cloudflare traffic, otherwise `cf-connecting-ip` could be forged.
 

@@ -5,6 +5,7 @@ import { createServer, type Server } from "node:http";
 import { after, before, test } from "node:test";
 
 const enabled = Boolean(process.env.DATABASE_URL);
+process.env.TRUST_PROXY = "xff"; // the tests tell visitors apart with X-Forwarded-For
 process.env.CHAT_RATE_PER_MINUTE = "4"; // small limit to test rate limiting quickly (read when the module is first imported)
 
 const ALLOWED = "https://allowed.example";

@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: fcg
       POSTGRES_DB: fcg
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - fcg-data:/var/lib/postgresql/data
 

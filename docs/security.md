@@ -14,9 +14,9 @@ This page explains what the app protects and how, so you can deploy it with conf
 |---|---|
 | Passwords | Hashed with argon2id (OWASP parameters). 12 characters minimum. |
 | Sessions | Random 256-bit token in an `HttpOnly`, `SameSite=Strict` cookie (`__Host-` prefix and `Secure` in production). Only the SHA-256 of the token is stored; sessions last 8 hours and can be revoked. |
-| Brute force | 5 failed sign-ins per e-mail and 20 per IP in 15 minutes lock sign-in. Unknown e-mails take the same time as wrong passwords. |
+| Brute force | 5 failed sign-ins per e-mail and 20 per IP in 15 minutes lock sign-in (the IP is only known when `TRUST_PROXY` is set). Unknown e-mails take the same time as wrong passwords. |
 | Authorization | Every admin page and every server action calls `requireAdmin()` itself; the proxy cookie check is only a first barrier. |
-| Setup | The setup page works only while there is no admin, and the database allows a single admin row. |
+| Setup | The setup page works only while there is no admin, and the database allows a single admin row. Set `SETUP_TOKEN` to also require a secret, so a fresh public instance cannot be claimed by the first visitor. |
 | Headers | CSP, `X-Content-Type-Options`, `Referrer-Policy`, `noindex`, `no-store` on `/admin`. |
 
 ## Public API
@@ -24,7 +24,8 @@ This page explains what the app protects and how, so you can deploy it with conf
 | Protection | Details |
 |---|---|
 | Origins | Browsers calling with the public key must come from the chatbot's allowed origins. Preflight requests are answered; the real request enforces the rule. |
-| Rate limiting | Per visitor and chatbot, and per chatbot (database-backed, so it holds with several processes). |
+| Rate limiting | Per visitor and chatbot, and per chatbot (database-backed, so it holds with several processes). The visitor's IP is read from a header only when you set `TRUST_PROXY`; by default forwarding headers are ignored because a visitor could forge them. |
+| Retention | Set `RETENTION_DAYS` to delete old chat messages automatically. Contacts are kept until you delete them. |
 | Input | Body size capped (50 KB), message length capped (1000), strict schema validation. |
 | Secret keys | Only the SHA-256 hash is stored; the key is shown once when generated. |
 | Privacy | Visitor IPs are never stored: only a salted hash (to count unique visitors). |
@@ -70,6 +71,7 @@ A snapshot lists each key's `botId` and `botName`, so you can find the old id of
 - Keep the secret key on servers only; rotate it if it leaks (*Regenerate*).
 - Keep `ALLOW_PRIVATE_URLS=false` on public servers.
 - Restrict network access to PostgreSQL.
-- Behind a proxy, overwrite `X-Forwarded-For` (see [self-hosting.md](self-hosting.md#reverse-proxy)).
+- Behind a proxy, overwrite `X-Forwarded-For` and set `TRUST_PROXY` (see [self-hosting.md](self-hosting.md#reverse-proxy)).
+- Set `SETUP_TOKEN` before the first start, and `RETENTION_DAYS` if you do not need old conversations.
 - Keep dependencies updated (`npm audit`, Dependabot).
 - Back up the database **and** `APP_SECRET`.

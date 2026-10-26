@@ -10,6 +10,9 @@ All settings are environment variables, read from `.env` in development or from 
 | `ALLOW_PRIVATE_URLS` | no | `false` | When `true`, the *Web page* importer may fetch addresses on private networks (localhost, intranet). Leave it off on a public server: it is the protection against SSRF. |
 | `CHAT_RATE_PER_MINUTE` | no | `15` | Messages per minute per visitor (IP address) and chatbot, for public-key calls. |
 | `CHAT_BOT_RATE_PER_MINUTE` | no | `300` | Messages per minute per chatbot, all callers together. |
+| `TRUST_PROXY` | no | `none` | Which header carries the visitor's IP address: `none` (ignore them all), `cloudflare` (`cf-connecting-ip`) or `xff` (last `X-Forwarded-For` entry). Set it only behind a proxy of yours that overwrites that header, otherwise visitors could forge it and bypass the rate limits. With `none`, visitors share one rate-limit bucket (with a higher ceiling) and the per-chatbot limit does the real work. |
+| `SETUP_TOKEN` | no | | When set, creating the first admin account requires this value. Strongly recommended for a new public instance. |
+| `RETENTION_DAYS` | no | keep forever | Chat messages older than this many days are deleted. Contacts (leads) are never deleted automatically: see [leads.md](leads.md). |
 | `KEY_BACKUP_DIR` | no | `./backups` | Folder where encrypted copies of the API keys are written. In Docker it is `/data/backups` (a volume). |
 | `POSTGRES_PASSWORD` | Docker Compose | | Password of the bundled PostgreSQL container. |
 | `PORT` | no | `3010` | Port published by Docker Compose. In development the port is fixed to 3010 by `npm run dev`. |
